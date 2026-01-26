@@ -11,12 +11,12 @@
 #include <d3d11.h>
 #include <d3dcompiler.h>
 
+// 렌더링 담당 클래스
 class URenderer
 {
  public:
-     //Direct3D 장치(Device)와 장치 
+    // Direct3D 장치(Device)와 장치
 };
-
 
 /*
  * 각종 메세지를 처리할 함수
