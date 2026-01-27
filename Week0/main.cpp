@@ -20,11 +20,13 @@ struct FVertexSimple
 
 // 삼각형 하드코딩
 
+// clang-format off
 FVertexSimple triangle_vertices[] = {
-    {0.0f, 1.0f, 0.0f,  1.f, 0.f, 0.f, 1.f},    //TOP Vertex (red)
-    {1.f, -1.f, 0.f,    0.f, 1.f, 0.f, 1.f},    //Bottom-right vertex (green)
+    { 0.f,  1.f, 0.f,   1.f, 0.f, 0.f, 1.f},    //TOP Vertex (red)
+    { 1.f, -1.f, 0.f,   0.f, 1.f, 0.f, 1.f},    //Bottom-right vertex (green)
     {-1.f, -1.f, 0.f,   0.f, 0.f, 1.f, 1.f}     // Bottom-left vertex (blue)
 };
+// clang-format on
 
 // 렌더링 담당 클래스
 class URenderer
@@ -290,8 +292,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     return 0;
 }
 
-//
-
 /*
  * 가장 기본이 되는 메인 함수
  * @param hIntance: 인스턴스
@@ -331,6 +331,22 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
     // 렌더러 생성 직후 쉐이더 생성 함수 호출
     renderer.CreateShader();
 
+    // Renderer와 Shader 생성 이후에 Vertex Buffer 생성
+    FVertexSimple* vertices = triangle_vertices;
+    UINT ByteWidth = sizeof(triangle_vertices);
+    UINT numVertices = sizeof(triangle_vertices) / sizeof(FVertexSimple);
+
+    // 생성
+    D3D11_BUFFER_DESC vertexbufferdesc = {};
+    vertexbufferdesc.ByteWidth = ByteWidth;
+    vertexbufferdesc.Usage = D3D11_USAGE_IMMUTABLE;
+    vertexbufferdesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+
+    D3D11_SUBRESOURCE_DATA vertexbufferSRD = { vertices };
+    ID3D11Buffer* vertexBuffer;
+    renderer.Device->CreateBuffer(&vertexbufferdesc, &vertexbufferSRD,
+                                  &vertexBuffer);
+
     bool bIsExit = false;
 
     // 각종 생성하는 코드를 여기에 추가한다.
@@ -361,6 +377,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
     }
 
     // 소멸하는 코드를 여기에 추가합니다
+
+    // renderer소멸 전에 vertex buffer소멸 처리
+    vertexBuffer->Release();
 
     // 렌더러 소멸 직전 쉐이더 소멸 함수 호출
     renderer.ReleaseShader();
