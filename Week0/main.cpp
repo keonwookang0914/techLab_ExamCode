@@ -223,7 +223,7 @@ class URenderer
         ID3DBlob* pixelShaderCSO;
         ID3DBlob* errorBlob;
 
-        HRESULT br = D3DCompileFromFile(L"VertexShader.hlsl", nullptr, nullptr, "mainVS",
+        HRESULT br = D3DCompileFromFile(L"ShaderW0.hlsl", nullptr, nullptr, "mainVS",
                                "vs_5_0", 0, 0, &vertexShaderCSO, &errorBlob);
         
 
@@ -231,7 +231,7 @@ class URenderer
                                    vertexShaderCSO->GetBufferSize(), nullptr,
                                    &SimpleVertexShader);
 
-        D3DCompileFromFile(L"VertexShader.hlsl", nullptr, nullptr, "mainPS",
+        D3DCompileFromFile(L"ShaderW0.hlsl", nullptr, nullptr, "mainPS",
                            "ps_5_0", 0, 0, &pixelShaderCSO, nullptr);
 
         Device->CreatePixelShader(pixelShaderCSO->GetBufferPointer(),
