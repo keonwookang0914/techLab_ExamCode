@@ -11,12 +11,19 @@
 #include <d3d11.h>
 #include <d3dcompiler.h>
 
-
-//define triangle vertices
+// 삼각형 정점들 정의
 struct FVertexSimple
 {
-    float x, y, z;      //position
-    float r, g, b, a;   //color
+    float x, y, z;     // position
+    float r, g, b, a;  // color
+};
+
+// 삼각형 하드코딩
+
+FVertexSimple triangle_vertices[] = {
+    {0.0f, 1.0f, 0.0f,  1.f, 0.f, 0.f, 1.f},    //TOP Vertex (red)
+    {1.f, -1.f, 0.f,    0.f, 1.f, 0.f, 1.f},    //Bottom-right vertex (green)
+    {-1.f, -1.f, 0.f,   0.f, 0.f, 1.f, 1.f}     // Bottom-left vertex (blue)
 };
 
 // 렌더링 담당 클래스
@@ -201,7 +208,7 @@ class URenderer
      *          Shader Section
      ******************************************/
 
-public:
+ public:
     ID3D11VertexShader* SimpleVertexShader;
     ID3D11PixelShader* SimplePixelShader;
     ID3D11InputLayout* SimpleInputLayout;
@@ -221,7 +228,7 @@ public:
                            "ps_5_0", 0, 0, &pixelShaderCSO, nullptr);
         Device->CreatePixelShader(pixelShaderCSO->GetBufferPointer(),
                                   pixelShaderCSO->GetBufferSize(), nullptr,
-                                   &SimplePixelShader);
+                                  &SimplePixelShader);
 
         D3D11_INPUT_ELEMENT_DESC layout[] = {
             { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0,
@@ -258,7 +265,6 @@ public:
             SimpleVertexShader = nullptr;
         }
     }
-
 };
 
 /*
@@ -322,6 +328,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
     // D3D11 생성하는 함수 호출
     renderer.Create(hWnd);
 
+    // 렌더러 생성 직후 쉐이더 생성 함수 호출
+    renderer.CreateShader();
+
     bool bIsExit = false;
 
     // 각종 생성하는 코드를 여기에 추가한다.
@@ -352,6 +361,10 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
     }
 
     // 소멸하는 코드를 여기에 추가합니다
+
+    // 렌더러 소멸 직전 쉐이더 소멸 함수 호출
+    renderer.ReleaseShader();
+    renderer.Release();
 
     // D3D11 소멸시키는 함수를 호출
     renderer.Release();
