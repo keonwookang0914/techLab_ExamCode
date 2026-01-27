@@ -1,4 +1,4 @@
-﻿#include <windows.h>
+#include <windows.h>
 #include <array>
 // 먼저 D3D11 관련한 라이브러리와 헤더를 Main 소스 파일에 추가합니다.
 
@@ -6,6 +6,8 @@
 #pragma comment(lib, "user32")
 #pragma comment(lib, "d3d11")
 #pragma comment(lib, "d3dcompiler")
+
+#pragma warning(disable: 4819)
 
 // D3D에 사용할 헤더파일들을 포함합니다.
 #include <d3d11.h>
@@ -29,6 +31,12 @@ struct FVector
 {
     float x, y, z;
     FVector(float _x = 0, float _y = 0, float _z = 0) : x(_x), y(_y), z(_z) { }
+	void operator+=(const FVector& rhs)
+	{
+		x += rhs.x;
+		y += rhs.y;
+		z += rhs.z;
+	}
 };
 
 /**********************************************
@@ -165,6 +173,7 @@ class URenderer
         swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;  // 스왑 방식
 
         // Direct3D 장치와 스왑 체인 생성
+
         D3D11CreateDeviceAndSwapChain(
             nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr,
             D3D11_CREATE_DEVICE_BGRA_SUPPORT | D3D11_CREATE_DEVICE_DEBUG,
@@ -297,7 +306,7 @@ class URenderer
         HRESULT br =
             D3DCompileFromFile(L"ShaderW0.hlsl", nullptr, nullptr, "mainVS",
                                "vs_5_0", 0, 0, &vertexShaderCSO, nullptr);
-        
+
         Device->CreateVertexShader(vertexShaderCSO->GetBufferPointer(),
                                    vertexShaderCSO->GetBufferSize(), nullptr,
                                    &SimpleVertexShader);
@@ -546,13 +555,13 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
     UINT numVerticesSphere = sizeof(sphere_vertices) / sizeof(FVertexSimple);
 
     // 구 크기 조절
-    float sacleMod = 0.1f;
+    float scaleMod = 0.1f;
 
     for (UINT i = 0; i < numVerticesSphere; ++i)
     {
-        sphere_vertices[i].x *= sacleMod;
-        sphere_vertices[i].y *= sacleMod;
-        sphere_vertices[i].z *= sacleMod;
+        sphere_vertices[i].x *= scaleMod;
+        sphere_vertices[i].y *= scaleMod;
+        sphere_vertices[i].z *= scaleMod;
     }
 
     ID3D11Buffer* vertexBufferTriangle = renderer.CreateVertexBuffer(
@@ -564,6 +573,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 
     // 도형의 움직임 정도를 담을 offset 변수.
     FVector offset(0.f);
+	// 도형의 속도를 담을 변수
+    FVector velocity(0.f);
 
     bool bIsExit = false;
 
@@ -579,10 +590,40 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
         EPT_MAX
     };
 
-    ETypePrimitive typePrimitive = EPT_Triangle;
+    ETypePrimitive typePrimitive = EPT_Sphere;
 
+    const float leftBorder = -1.f;
+    const float rightBorder = 1.f;
+    const float topBorder = 1.f;
+    const float bottomBorder = -1.f;
+    const float sphereRadius = 1.f;
+
+    bool bBoundBallToScreen = true;
+	//핀볼 움직임 여부를 나타내는 bPinballMovement 정의
+    bool bPinballMovement = true;
+	//핀볼에 임의의속도를 부여
+    // 0.001f 를 조절해공의 초기 속도 조절
+    const float ballSpeed = 0.0005f;
+    velocity.x = ((float)(rand() % 100 - 50)) * ballSpeed; 
+    velocity.y = ((float)(rand() % 100 - 50)) * ballSpeed;
+
+	// FPS 제한을 위한 설정
+    const int targetFPS = 60;
+    const double targetFrameTime = 1000.0 / targetFPS; //한 프레임의 목표 시간(밀리초 단위)
+
+	//고성능 타이머 초기화
+    LARGE_INTEGER frequency;
+    QueryPerformanceFrequency(&frequency);
+
+	LARGE_INTEGER startTime, endTime;
+    double elapsedTime = 0.0;
+    int frameCount = 0;
+    double frameRate = 0.0;
     while (bIsExit == false)
     {
+		//루프 시간 기록
+        QueryPerformanceCounter(&startTime);
+
         MSG msg;
         // 처리할 메시지가 더 이상 없을 때 까지 수행
         while (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE))
@@ -616,7 +657,55 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
                     offset.y -= 0.01f;
                 }
             }
+            //키보드 처리 직후에 화면 밖을 벗어났다면 화면 안쪽으로 위치시킨다
+			//화면을 벗어나지 않게 처리
+            if (bBoundBallToScreen)
+            {
+                float renderRadius = sphereRadius * scaleMod;
+                if (offset.x < leftBorder + renderRadius)
+                {
+                    offset.x = leftBorder + renderRadius;
+                }
+                if (offset.x > rightBorder - renderRadius)
+                {
+                    offset.x = rightBorder - renderRadius;
+                }
+                if (offset.y > topBorder - renderRadius)
+                {
+                    offset.y = topBorder - renderRadius;
+                }
+                if (offset.y < bottomBorder + renderRadius)
+                {
+                    offset.y = bottomBorder + renderRadius;
+                }
+            }
         }
+        // 핀볼 움직임이 켜져있다면
+        if (bPinballMovement)
+        {
+            // 속도를 공 위치에 더해 공을 실질적으로 움직임
+            offset += velocity;
+
+            // 벽과 충돌 여부를 체크하고 충돌 시 속도에 음수를 곱해 방향을 바꿈
+            float renderRadius = sphereRadius * scaleMod;
+            if (offset.x < leftBorder + renderRadius)
+            {
+                velocity.x *= -1;
+            }
+            if (offset.x > rightBorder - renderRadius)
+            {
+                velocity.x *= -1;
+            }
+            if (offset.y > topBorder - renderRadius)
+            {
+                velocity.y *= -1;
+            }
+            if (offset.y < bottomBorder + renderRadius)
+            {
+                velocity.y *= -1;
+            }
+        }
+
         ///////////////////////////////////////
         // 매번 실행되는 코드를 여기에 추가합니다
 
@@ -647,24 +736,14 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
         // 이후 ImGui UI 컨트롤 추가는 ImGui::NewFrame()과 ImGui::Render()
         // 사이인 이곳에 위치
         ImGui::Begin("Jungle Property Window");
+        //**********************IMGUI section Start**********************
         ImGui::Text("Hello Jungle World!");
+        
+        ImGui::Checkbox("Bound Ball To Screen", &bBoundBallToScreen);
+		//핀볼 움직임 켜고 끌 수 있는 UI와 연결
+        ImGui::Checkbox("PinBall Movement", &bPinballMovement);
 
-        if (ImGui::Button("Change primitive"))
-        {
-            switch (typePrimitive)
-            {
-                case EPT_Triangle:
-                    typePrimitive = EPT_Cube;
-                    break;
-                case EPT_Cube:
-                    typePrimitive = EPT_Sphere;
-                    break;
-                case EPT_Sphere:
-                    typePrimitive = EPT_Triangle;
-                    break;
-            }
-        }
-
+        //**********************IMGUI section Start**********************
         ImGui::End();
 
         ImGui::Render();
@@ -674,6 +753,13 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
         // 현재 화면에 보여지는 버퍼와 그리기 작업을 위한 버퍼를 서로 교환
         renderer.SwapBuffer();
         ///////////////////////////////////////
+		do 
+		{
+            Sleep(0);
+
+			QueryPerformanceCounter(&endTime);
+            elapsedTime = (endTime.QuadPart - startTime.QuadPart) * 1000.0 / frequency.QuadPart;
+        } while (elapsedTime < targetFrameTime);
     }
 
     // 여기에서 ImGui 소멸
