@@ -1,3 +1,9 @@
+cbuffer constants : register(b0)
+{
+    float3 Offset;
+    float Pad;
+}
+
 struct VS_INPUT
 {
     float4 position : POSITION; // Input position from vertex buffer
@@ -15,7 +21,10 @@ PS_INPUT mainVS(VS_INPUT input)
     PS_INPUT output;
     
     // Pass the position directly to the pixel shader (no transformation)
-    output.position = input.position;
+    //output.position = input.position;
+    
+    //상수 버퍼를 통해 넘겨받은 Offset을 더해서 버텍스를 이동시켜 픽셀쉐이더로 옮김
+    output.position = float4(Offset, 0) + input.position;
     
     // Pass the color to the pixel shader
     output.color = input.color;

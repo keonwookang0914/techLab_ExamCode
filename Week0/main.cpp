@@ -11,6 +11,12 @@
 #include <d3d11.h>
 #include <d3dcompiler.h>
 
+#include "ImGui/imgui.h"
+#include "ImGui/imgui_impl_dx11.h"
+#include "ImGui/imgui_impl_win32.h"
+#include "ImGui/imgui_internal.h"
+
+// clang-format off
 // 삼각형 정점들 정의
 struct FVertexSimple
 {
@@ -18,14 +24,80 @@ struct FVertexSimple
     float r, g, b, a;  // color
 };
 
-// 삼각형 하드코딩
+// Structure for a 3D Vector
+struct FVector
+{
+    float x, y, z;
+    FVector(float _x = 0, float _y = 0, float _z = 0) : x(_x), y(_y), z(_z) { }
+};
 
-// clang-format off
-FVertexSimple triangle_vertices[] = {
+/**********************************************
+* Basic Polygon (NEVER clang-format)
+**********************************************/
+
+//삼각형 하드코딩
+FVertexSimple triangle_vertices[] = 
+{
     { 0.f,  1.f, 0.f,   1.f, 0.f, 0.f, 1.f},    //TOP Vertex (red)
     { 1.f, -1.f, 0.f,   0.f, 1.f, 0.f, 1.f},    //Bottom-right vertex (green)
     {-1.f, -1.f, 0.f,   0.f, 0.f, 1.f, 1.f}     // Bottom-left vertex (blue)
 };
+
+//큐브 하드코딩
+FVertexSimple cube_vertices[] = 
+{
+    // Front face (Z+)
+	{ -0.5f, -0.5f,  0.5f,  1.0f, 0.0f, 0.0f, 1.0f }, // Bottom-left (red)
+	{ -0.5f,  0.5f,  0.5f,  1.0f, 1.0f, 0.0f, 1.0f }, // Top-left (yellow)
+	{  0.5f, -0.5f,  0.5f,  0.0f, 1.0f, 0.0f, 1.0f }, // Bottom-right (green)
+	{ -0.5f,  0.5f,  0.5f,  1.0f, 1.0f, 0.0f, 1.0f }, // Top-left (yellow)
+	{  0.5f,  0.5f,  0.5f,  0.0f, 0.0f, 1.0f, 1.0f }, // Top-right (blue)
+	{  0.5f, -0.5f,  0.5f,  0.0f, 1.0f, 0.0f, 1.0f }, // Bottom-right (green)
+
+	// Back face (Z-)
+	{ -0.5f, -0.5f, -0.5f,  0.0f, 1.0f, 1.0f, 1.0f }, // Bottom-left (cyan)
+	{  0.5f, -0.5f, -0.5f,  1.0f, 0.0f, 1.0f, 1.0f }, // Bottom-right (magenta)
+	{ -0.5f,  0.5f, -0.5f,  0.0f, 0.0f, 1.0f, 1.0f }, // Top-left (blue)
+	{ -0.5f,  0.5f, -0.5f,  0.0f, 0.0f, 1.0f, 1.0f }, // Top-left (blue)
+	{  0.5f, -0.5f, -0.5f,  1.0f, 0.0f, 1.0f, 1.0f }, // Bottom-right (magenta)
+	{  0.5f,  0.5f, -0.5f,  1.0f, 1.0f, 0.0f, 1.0f }, // Top-right (yellow)
+
+	// Left face (X-)
+	{ -0.5f, -0.5f, -0.5f,  1.0f, 0.0f, 1.0f, 1.0f }, // Bottom-left (purple)
+	{ -0.5f,  0.5f, -0.5f,  0.0f, 0.0f, 1.0f, 1.0f }, // Top-left (blue)
+	{ -0.5f, -0.5f,  0.5f,  0.0f, 1.0f, 0.0f, 1.0f }, // Bottom-right (green)
+	{ -0.5f,  0.5f, -0.5f,  0.0f, 0.0f, 1.0f, 1.0f }, // Top-left (blue)
+	{ -0.5f,  0.5f,  0.5f,  1.0f, 1.0f, 0.0f, 1.0f }, // Top-right (yellow)
+	{ -0.5f, -0.5f,  0.5f,  0.0f, 1.0f, 0.0f, 1.0f }, // Bottom-right (green)
+
+	// Right face (X+)
+	{  0.5f, -0.5f, -0.5f,  1.0f, 0.5f, 0.0f, 1.0f }, // Bottom-left (orange)
+	{  0.5f, -0.5f,  0.5f,  0.5f, 0.5f, 0.5f, 1.0f }, // Bottom-right (gray)
+	{  0.5f,  0.5f, -0.5f,  0.5f, 0.0f, 0.5f, 1.0f }, // Top-left (purple)
+	{  0.5f,  0.5f, -0.5f,  0.5f, 0.0f, 0.5f, 1.0f }, // Top-left (purple)
+	{  0.5f, -0.5f,  0.5f,  0.5f, 0.5f, 0.5f, 1.0f }, // Bottom-right (gray)
+	{  0.5f,  0.5f,  0.5f,  0.0f, 0.0f, 0.5f, 1.0f }, // Top-right (dark blue)
+
+	// Top face (Y+)
+	{ -0.5f,  0.5f, -0.5f,  0.0f, 1.0f, 0.5f, 1.0f }, // Bottom-left (light green)
+	{ -0.5f,  0.5f,  0.5f,  0.0f, 0.5f, 1.0f, 1.0f }, // Top-left (cyan)
+	{  0.5f,  0.5f, -0.5f,  0.5f, 1.0f, 1.0f, 1.0f }, // Bottom-right (white)
+	{ -0.5f,  0.5f,  0.5f,  0.0f, 0.5f, 1.0f, 1.0f }, // Top-left (cyan)
+	{  0.5f,  0.5f,  0.5f,  0.5f, 0.5f, 0.0f, 1.0f }, // Top-right (brown)
+	{  0.5f,  0.5f, -0.5f,  0.5f, 1.0f, 1.0f, 1.0f }, // Bottom-right (white)
+
+	// Bottom face (Y-)
+	{ -0.5f, -0.5f, -0.5f,  0.5f, 0.5f, 0.0f, 1.0f }, // Bottom-left (brown)
+	{ -0.5f, -0.5f,  0.5f,  1.0f, 0.0f, 0.0f, 1.0f }, // Top-left (red)
+	{  0.5f, -0.5f, -0.5f,  1.0f, 0.0f, 0.5f, 1.0f }, // Bottom-right (purple)
+	{ -0.5f, -0.5f,  0.5f,  1.0f, 0.0f, 0.0f, 1.0f }, // Top-left (red)
+	{  0.5f, -0.5f,  0.5f,  0.0f, 1.0f, 0.0f, 1.0f }, // Top-right (green)
+	{  0.5f, -0.5f, -0.5f,  1.0f, 0.0f, 0.5f, 1.0f }, // Bottom-right (purple)
+};
+
+//구는 헤더파일로 대체
+#include "Sphere.h"
+
 // clang-format on
 
 #pragma region 렌더러 클래스
@@ -221,17 +293,16 @@ class URenderer
     {
         ID3DBlob* vertexShaderCSO;
         ID3DBlob* pixelShaderCSO;
-        ID3DBlob* errorBlob;
 
-        HRESULT br = D3DCompileFromFile(L"VertexShader.hlsl", nullptr, nullptr, "mainVS",
-                               "vs_5_0", 0, 0, &vertexShaderCSO, &errorBlob);
+        HRESULT br =
+            D3DCompileFromFile(L"ShaderW0.hlsl", nullptr, nullptr, "mainVS",
+                               "vs_5_0", 0, 0, &vertexShaderCSO, nullptr);
         
-
         Device->CreateVertexShader(vertexShaderCSO->GetBufferPointer(),
                                    vertexShaderCSO->GetBufferSize(), nullptr,
                                    &SimpleVertexShader);
 
-        D3DCompileFromFile(L"VertexShader.hlsl", nullptr, nullptr, "mainPS",
+        D3DCompileFromFile(L"ShaderW0.hlsl", nullptr, nullptr, "mainPS",
                            "ps_5_0", 0, 0, &pixelShaderCSO, nullptr);
 
         Device->CreatePixelShader(pixelShaderCSO->GetBufferPointer(),
@@ -297,6 +368,12 @@ class URenderer
         DeviceContext->VSSetShader(SimpleVertexShader, nullptr, 0);
         DeviceContext->PSSetShader(SimplePixelShader, nullptr, 0);
         DeviceContext->IASetInputLayout(SimpleInputLayout);
+
+        // 버텍스 셰이더에 상수 버퍼를 설정한다
+        if (ConstantBuffer)
+        {
+            DeviceContext->VSSetConstantBuffers(0, 1, &ConstantBuffer);
+        }
     }
 
     void RenderPrimitive(ID3D11Buffer* pBuffer, UINT numVertices)
@@ -306,8 +383,84 @@ class URenderer
 
         DeviceContext->Draw(numVertices, 0);
     }
+
+    /******************************************
+     *     Vertex Buffer Helper function
+     ******************************************/
+    ID3D11Buffer* CreateVertexBuffer(FVertexSimple* vertices, UINT byteWidth)
+    {
+        D3D11_BUFFER_DESC vertexbufferdesc = {};
+        vertexbufferdesc.ByteWidth = byteWidth;
+        vertexbufferdesc.Usage = D3D11_USAGE_IMMUTABLE;  // will never be
+                                                         // updated
+        vertexbufferdesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+
+        D3D11_SUBRESOURCE_DATA vertexbufferSRD = { vertices };
+
+        ID3D11Buffer* vertexBuffer;
+        Device->CreateBuffer(&vertexbufferdesc, &vertexbufferSRD,
+                             &vertexBuffer);
+
+        return vertexBuffer;
+    }
+
+    void ReleaseVertexBuffer(ID3D11Buffer* vertexBuffer)
+    {
+        vertexBuffer->Release();
+    }
+
+    /******************************************
+     *          Constant Buffer Section
+     ******************************************/
+    struct FConstants
+    {
+        FVector Offset;
+        float Pad;
+    };
+
+    void CreateConstantBuffer()
+    {
+        D3D11_BUFFER_DESC constantbufferdesc = {};
+        // ensure constant buffer size is multiple of 16 bytes
+        constantbufferdesc.ByteWidth = sizeof(FConstants) + 0xf & 0xfffffff0;
+        // will be updated from CPU every frame
+        constantbufferdesc.Usage = D3D11_USAGE_DYNAMIC;
+        constantbufferdesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+        constantbufferdesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+
+        Device->CreateBuffer(&constantbufferdesc, nullptr, &ConstantBuffer);
+    }
+
+    void ReleaseConstantBuffer()
+    {
+        if (ConstantBuffer)
+        {
+            ConstantBuffer->Release();
+            ConstantBuffer = nullptr;
+        }
+    }
+
+    // 상수 버퍼 갱신 함수
+    void UpdateConstant(FVector Offset)
+    {
+        if (ConstantBuffer)
+        {
+            D3D11_MAPPED_SUBRESOURCE constantBufferMSR;
+            DeviceContext->Map(
+                ConstantBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0,
+                &constantBufferMSR);  // update constant buffer every frame
+            FConstants* constants = (FConstants*)constantBufferMSR.pData;
+            {
+                constants->Offset = Offset;
+            }
+            DeviceContext->Unmap(ConstantBuffer, 0);
+        }
+    }
 };
 #pragma endregion
+
+extern LRESULT ImGui_ImplWin32_WndProcHandler(HWND hwnd, UINT msg,
+                                              WPARAM wParam, LPARAM lParam);
 
 /*
  * 각종 메세지를 처리할 함수
@@ -319,6 +472,11 @@ class URenderer
  */
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
+    if (ImGui_ImplWin32_WndProcHandler(hWnd, message, wParam, lParam))
+    {
+        return true;
+    }
+
     switch (message)
     {
         case WM_DESTROY:
@@ -371,26 +529,58 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
     // 렌더러 생성 직후 쉐이더 생성 함수 호출
     renderer.CreateShader();
 
+    // 상수함수 생성
+    renderer.CreateConstantBuffer();
+
+    // ImGui 생성 및 초기화
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO();
+    ImGui_ImplWin32_Init((void*)hWnd);
+    ImGui_ImplDX11_Init(renderer.Device, renderer.DeviceContext);
+
     // Renderer와 Shader 생성 이후에 Vertex Buffer 생성
-    FVertexSimple* vertices = triangle_vertices;
-    UINT ByteWidth = sizeof(triangle_vertices);
-    UINT numVertices = sizeof(triangle_vertices) / sizeof(FVertexSimple);
+    UINT numVerticesTriangle =
+        sizeof(triangle_vertices) / sizeof(FVertexSimple);
+    UINT numVerticesCube = sizeof(cube_vertices) / sizeof(FVertexSimple);
+    UINT numVerticesSphere = sizeof(sphere_vertices) / sizeof(FVertexSimple);
 
-    // 생성
-    D3D11_BUFFER_DESC vertexbufferdesc = {};
-    vertexbufferdesc.ByteWidth = ByteWidth;
-    vertexbufferdesc.Usage = D3D11_USAGE_IMMUTABLE;
-    vertexbufferdesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+    // 구 크기 조절
+    float sacleMod = 0.1f;
 
-    D3D11_SUBRESOURCE_DATA vertexbufferSRD = { vertices };
-    ID3D11Buffer* vertexBuffer;
-    renderer.Device->CreateBuffer(&vertexbufferdesc, &vertexbufferSRD,
-                                  &vertexBuffer);
+    for (UINT i = 0; i < numVerticesSphere; ++i)
+    {
+        sphere_vertices[i].x *= sacleMod;
+        sphere_vertices[i].y *= sacleMod;
+        sphere_vertices[i].z *= sacleMod;
+    }
+
+    ID3D11Buffer* vertexBufferTriangle = renderer.CreateVertexBuffer(
+        triangle_vertices, sizeof(triangle_vertices));
+    ID3D11Buffer* vertexBufferCube =
+        renderer.CreateVertexBuffer(cube_vertices, sizeof(cube_vertices));
+    ID3D11Buffer* vertexBufferSphere =
+        renderer.CreateVertexBuffer(sphere_vertices, sizeof(sphere_vertices));
+
+    // 도형의 움직임 정도를 담을 offset 변수.
+    FVector offset(0.f);
 
     bool bIsExit = false;
 
     // 각종 생성하는 코드를 여기에 추가한다.
     // Main Loop(Quit Message가 들어오기 전가지 아래 Loop를 무한히 실행한다)
+
+    // 어떤 도형을 렌더링하는지 나타내는 열거형
+    enum ETypePrimitive
+    {
+        EPT_Triangle,
+        EPT_Cube,
+        EPT_Sphere,
+        EPT_MAX
+    };
+
+    ETypePrimitive typePrimitive = EPT_Triangle;
+
     while (bIsExit == false)
     {
         MSG msg;
@@ -407,6 +597,25 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
                 bIsExit = true;
                 break;
             }
+            else if (msg.message == WM_KEYDOWN)  // 키보드 눌렀을 때
+            {
+                if (msg.wParam == VK_LEFT)
+                {
+                    offset.x -= 0.01f;
+                }
+                if (msg.wParam == VK_RIGHT)
+                {
+                    offset.x += 0.01f;
+                }
+                if (msg.wParam == VK_UP)
+                {
+                    offset.y += 0.01f;
+                }
+                if (msg.wParam == VK_DOWN)
+                {
+                    offset.y -= 0.01f;
+                }
+            }
         }
         ///////////////////////////////////////
         // 매번 실행되는 코드를 여기에 추가합니다
@@ -414,19 +623,73 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
         // 준비 작업
         renderer.Prepare();
         renderer.PrepareShader();
+        renderer.UpdateConstant(offset);
 
-        //생성한 버텍스 버퍼를 넘겨 실질적인 렌더링 요청
-        renderer.RenderPrimitive(vertexBuffer, numVertices);
+        // 생성한 버텍스 버퍼를 넘겨 실질적인 렌더링 요청
+        switch (typePrimitive)
+        {
+            case EPT_Triangle:
+                renderer.RenderPrimitive(vertexBufferTriangle,
+                                         numVerticesTriangle);
+                break;
+            case EPT_Cube:
+                renderer.RenderPrimitive(vertexBufferCube, numVerticesCube);
+                break;
+            case EPT_Sphere:
+                renderer.RenderPrimitive(vertexBufferSphere, numVerticesSphere);
+                break;
+        }
+
+        ImGui_ImplDX11_NewFrame();
+        ImGui_ImplWin32_NewFrame();
+        ImGui::NewFrame();
+
+        // 이후 ImGui UI 컨트롤 추가는 ImGui::NewFrame()과 ImGui::Render()
+        // 사이인 이곳에 위치
+        ImGui::Begin("Jungle Property Window");
+        ImGui::Text("Hello Jungle World!");
+
+        if (ImGui::Button("Change primitive"))
+        {
+            switch (typePrimitive)
+            {
+                case EPT_Triangle:
+                    typePrimitive = EPT_Cube;
+                    break;
+                case EPT_Cube:
+                    typePrimitive = EPT_Sphere;
+                    break;
+                case EPT_Sphere:
+                    typePrimitive = EPT_Triangle;
+                    break;
+            }
+        }
+
+        ImGui::End();
+
+        ImGui::Render();
+
+        ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
 
         // 현재 화면에 보여지는 버퍼와 그리기 작업을 위한 버퍼를 서로 교환
         renderer.SwapBuffer();
         ///////////////////////////////////////
     }
 
+    // 여기에서 ImGui 소멸
+    ImGui_ImplDX11_Shutdown();
+    ImGui_ImplWin32_Shutdown();
+    ImGui::DestroyContext();
+
     // 소멸하는 코드를 여기에 추가합니다
 
     // renderer소멸 전에 vertex buffer소멸 처리
-    vertexBuffer->Release();
+    renderer.ReleaseVertexBuffer(vertexBufferTriangle);
+    renderer.ReleaseVertexBuffer(vertexBufferCube);
+    renderer.ReleaseVertexBuffer(vertexBufferSphere);
+
+    // 쉐이더 소멸 직전 상수 버퍼 소멸 함수 호출
+    renderer.ReleaseConstantBuffer();
 
     // 렌더러 소멸 직전 쉐이더 소멸 함수 호출
     renderer.ReleaseShader();
