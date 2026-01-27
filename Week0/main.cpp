@@ -603,12 +603,12 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
     bool bPinballMovement = true;
 	//핀볼에 임의의속도를 부여
     // 0.001f 를 조절해공의 초기 속도 조절
-    const float ballSpeed = 0.001f;
+    const float ballSpeed = 0.0005f;
     velocity.x = ((float)(rand() % 100 - 50)) * ballSpeed; 
     velocity.y = ((float)(rand() % 100 - 50)) * ballSpeed;
 
 	// FPS 제한을 위한 설정
-    const int targetFPS = 30;
+    const int targetFPS = 60;
     const double targetFrameTime = 1000.0 / targetFPS; //한 프레임의 목표 시간(밀리초 단위)
 
 	//고성능 타이머 초기화
@@ -617,7 +617,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 
 	LARGE_INTEGER startTime, endTime;
     double elapsedTime = 0.0;
-
+    int frameCount = 0;
+    double frameRate = 0.0;
     while (bIsExit == false)
     {
 		//루프 시간 기록
@@ -737,7 +738,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
         ImGui::Begin("Jungle Property Window");
         //**********************IMGUI section Start**********************
         ImGui::Text("Hello Jungle World!");
-
+        
         ImGui::Checkbox("Bound Ball To Screen", &bBoundBallToScreen);
 		//핀볼 움직임 켜고 끌 수 있는 UI와 연결
         ImGui::Checkbox("PinBall Movement", &bPinballMovement);
