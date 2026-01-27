@@ -11,6 +11,11 @@
 #include <d3d11.h>
 #include <d3dcompiler.h>
 
+#include "ImGui/imgui.h"
+#include "ImGui/imgui_impl_dx11.h"
+#include "ImGui/imgui_impl_win32.h"
+#include "ImGui/imgui_internal.h"
+
 // 삼각형 정점들 정의
 struct FVertexSimple
 {
@@ -223,9 +228,9 @@ class URenderer
         ID3DBlob* pixelShaderCSO;
         ID3DBlob* errorBlob;
 
-        HRESULT br = D3DCompileFromFile(L"ShaderW0.hlsl", nullptr, nullptr, "mainVS",
+        HRESULT br =
+            D3DCompileFromFile(L"ShaderW0.hlsl", nullptr, nullptr, "mainVS",
                                "vs_5_0", 0, 0, &vertexShaderCSO, &errorBlob);
-        
 
         Device->CreateVertexShader(vertexShaderCSO->GetBufferPointer(),
                                    vertexShaderCSO->GetBufferSize(), nullptr,
@@ -309,6 +314,9 @@ class URenderer
 };
 #pragma endregion
 
+extern LRESULT ImGUI_ImplWin32_WndProcHandler(HWND hwnd, UINT msg,
+                                              WPARAM wParam, LPARAM lParam);
+
 /*
  * 각종 메세지를 처리할 함수
  * @param hWnd:
@@ -319,6 +327,11 @@ class URenderer
  */
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
+    if (ImGUI_ImplWin32_WndProcHandler(hWnd, message, wParam, lParam))
+    {
+        return true;
+    }
+
     switch (message)
     {
         case WM_DESTROY:
@@ -371,6 +384,14 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
     // 렌더러 생성 직후 쉐이더 생성 함수 호출
     renderer.CreateShader();
 
+    //ImGui 생성 및 초기화
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO();
+    ImGui_ImplWin32_Init((void*)hWnd);
+    ImGui_ImplDX11_Init(renderer.Device, renderer.DeviceContext);
+
+
     // Renderer와 Shader 생성 이후에 Vertex Buffer 생성
     FVertexSimple* vertices = triangle_vertices;
     UINT ByteWidth = sizeof(triangle_vertices);
@@ -415,13 +436,18 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
         renderer.Prepare();
         renderer.PrepareShader();
 
-        //생성한 버텍스 버퍼를 넘겨 실질적인 렌더링 요청
+        // 생성한 버텍스 버퍼를 넘겨 실질적인 렌더링 요청
         renderer.RenderPrimitive(vertexBuffer, numVertices);
 
         // 현재 화면에 보여지는 버퍼와 그리기 작업을 위한 버퍼를 서로 교환
         renderer.SwapBuffer();
         ///////////////////////////////////////
     }
+
+    //여기에서 ImGui 소멸
+    ImGui_ImplDX11_Shutdown();
+    ImGui_ImplWin32_Shutdown();
+    ImGui::DestroyContext();
 
     // 소멸하는 코드를 여기에 추가합니다
 
