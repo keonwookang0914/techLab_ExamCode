@@ -1,4 +1,4 @@
-﻿#include <windows.h>
+#include <windows.h>
 #include <array>
 // 먼저 D3D11 관련한 라이브러리와 헤더를 Main 소스 파일에 추가합니다.
 
@@ -6,6 +6,8 @@
 #pragma comment(lib, "user32")
 #pragma comment(lib, "d3d11")
 #pragma comment(lib, "d3dcompiler")
+
+#pragma warning(disable: 4819)
 
 // D3D에 사용할 헤더파일들을 포함합니다.
 #include <d3d11.h>
@@ -165,6 +167,7 @@ class URenderer
         swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;  // 스왑 방식
 
         // Direct3D 장치와 스왑 체인 생성
+
         D3D11CreateDeviceAndSwapChain(
             nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr,
             D3D11_CREATE_DEVICE_BGRA_SUPPORT | D3D11_CREATE_DEVICE_DEBUG,
@@ -297,7 +300,7 @@ class URenderer
         HRESULT br =
             D3DCompileFromFile(L"ShaderW0.hlsl", nullptr, nullptr, "mainVS",
                                "vs_5_0", 0, 0, &vertexShaderCSO, nullptr);
-        
+
         Device->CreateVertexShader(vertexShaderCSO->GetBufferPointer(),
                                    vertexShaderCSO->GetBufferSize(), nullptr,
                                    &SimpleVertexShader);
@@ -579,7 +582,15 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
         EPT_MAX
     };
 
-    ETypePrimitive typePrimitive = EPT_Triangle;
+    ETypePrimitive typePrimitive = EPT_Sphere;
+
+    const float leftBorder = -1.f;
+    const float rightBorder = 1.f;
+    const float topBorder = 1.f;
+    const float bottomBorder = -1.f;
+    const float sphereRadius = 1.f;
+
+    bool bBoundBallToScreen = true;
 
     while (bIsExit == false)
     {
@@ -648,8 +659,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
         // 사이인 이곳에 위치
         ImGui::Begin("Jungle Property Window");
         ImGui::Text("Hello Jungle World!");
-
-        if (ImGui::Button("Change primitive"))
+        ImGui::Checkbox("Bound Ball To Screen", &bBoundBallToScreen);
+        /*if (ImGui::Button("Change primitive"))
         {
             switch (typePrimitive)
             {
@@ -663,7 +674,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
                     typePrimitive = EPT_Triangle;
                     break;
             }
-        }
+        }*/
 
         ImGui::End();
 
