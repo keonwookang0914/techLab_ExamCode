@@ -679,33 +679,33 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
                     offset.y = bottomBorder + renderRadius;
                 }
             }
-
-			//핀볼 움직임이 켜져있다면
-			if (bPinballMovement)
-			{
-				//속도를 공 위치에 더해 공을 실질적으로 움직임
-                offset += velocity;
-
-				//벽과 충돌 여부를 체크하고 충돌 시 속도에 음수를 곱해 방향을 바꿈
-                float renderRadius = sphereRadius * scaleMod;
-                if (offset.x < leftBorder + renderRadius)
-                {
-                    velocity.x *= -1;
-                }
-                if (offset.x > rightBorder - renderRadius)
-                {
-                    velocity.x *= -1;
-                }
-                if (offset.y > topBorder - renderRadius)
-                {
-                    velocity.y *= -1;
-                }
-                if (offset.y < bottomBorder + renderRadius)
-                {
-                    velocity.y *= -1;
-                }
-			}
         }
+        // 핀볼 움직임이 켜져있다면
+        if (bPinballMovement)
+        {
+            // 속도를 공 위치에 더해 공을 실질적으로 움직임
+            offset += velocity;
+
+            // 벽과 충돌 여부를 체크하고 충돌 시 속도에 음수를 곱해 방향을 바꿈
+            float renderRadius = sphereRadius * scaleMod;
+            if (offset.x < leftBorder + renderRadius)
+            {
+                velocity.x *= -1;
+            }
+            if (offset.x > rightBorder - renderRadius)
+            {
+                velocity.x *= -1;
+            }
+            if (offset.y > topBorder - renderRadius)
+            {
+                velocity.y *= -1;
+            }
+            if (offset.y < bottomBorder + renderRadius)
+            {
+                velocity.y *= -1;
+            }
+        }
+
         ///////////////////////////////////////
         // 매번 실행되는 코드를 여기에 추가합니다
 
