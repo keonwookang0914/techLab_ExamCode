@@ -11,9 +11,20 @@
 #include <d3d11.h>
 #include <d3dcompiler.h>
 
+
+//define triangle vertices
+struct FVertexSimple
+{
+    float x, y, z;      //position
+    float r, g, b, a;   //color
+};
+
 // 렌더링 담당 클래스
 class URenderer
 {
+    /******************************************
+     *          Shader Section
+     ******************************************/
  public:
     // Direct3D 장치(Device)와 장치 컨텍스트(Device Context) 및 스왑
     // 체인(SwapChain) 관리를 위한 포인터
@@ -185,6 +196,69 @@ class URenderer
     {
         SwapChain->Present(1, 0);  // 1: VSync 활성화
     }
+
+    /******************************************
+     *          Shader Section
+     ******************************************/
+
+public:
+    ID3D11VertexShader* SimpleVertexShader;
+    ID3D11PixelShader* SimplePixelShader;
+    ID3D11InputLayout* SimpleInputLayout;
+    unsigned int Stride;
+
+    void CreateShader()
+    {
+        ID3DBlob* vertexShaderCSO;
+        ID3DBlob* pixelShaderCSO;
+
+        D3DCompileFromFile(L"ShaderW0.hlsl", nullptr, nullptr, "mainVS",
+                           "vs_5_0", 0, 0, &vertexShaderCSO, nullptr);
+        Device->CreateVertexShader(vertexShaderCSO->GetBufferPointer(),
+                                   vertexShaderCSO->GetBufferSize(), nullptr,
+                                   &SimpleVertexShader);
+        D3DCompileFromFile(L"ShaderW0.hlsl", nullptr, nullptr, "mainPS",
+                           "ps_5_0", 0, 0, &pixelShaderCSO, nullptr);
+        Device->CreatePixelShader(pixelShaderCSO->GetBufferPointer(),
+                                  pixelShaderCSO->GetBufferSize(), nullptr,
+                                   &SimplePixelShader);
+
+        D3D11_INPUT_ELEMENT_DESC layout[] = {
+            { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0,
+              D3D11_INPUT_PER_VERTEX_DATA, 0 },
+            { "Color", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12,
+              D3D11_INPUT_PER_VERTEX_DATA, 0 }
+        };
+
+        Device->CreateInputLayout(
+            layout, ARRAYSIZE(layout), vertexShaderCSO->GetBufferPointer(),
+            vertexShaderCSO->GetBufferSize(), &SimpleInputLayout);
+
+        Stride = sizeof(FVertexSimple);
+        vertexShaderCSO->Release();
+        pixelShaderCSO->Release();
+    }
+
+    void ReleaseShader()
+    {
+        if (SimpleInputLayout)
+        {
+            SimpleInputLayout->Release();
+            SimpleInputLayout = nullptr;
+        }
+
+        if (SimplePixelShader)
+        {
+            SimplePixelShader->Release();
+            SimplePixelShader = nullptr;
+        }
+        if (SimpleVertexShader)
+        {
+            SimpleVertexShader->Release();
+            SimpleVertexShader = nullptr;
+        }
+    }
+
 };
 
 /*
