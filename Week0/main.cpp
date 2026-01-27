@@ -23,14 +23,74 @@ struct FVertexSimple
     float r, g, b, a;  // color
 };
 
-// 삼각형 하드코딩
-
 // clang-format off
-FVertexSimple triangle_vertices[] = {
+/**********************************************
+* Basic Polygon (NEVER clang-format)
+**********************************************/
+
+//삼각형 하드코딩
+FVertexSimple triangle_vertices[] = 
+{
     { 0.f,  1.f, 0.f,   1.f, 0.f, 0.f, 1.f},    //TOP Vertex (red)
     { 1.f, -1.f, 0.f,   0.f, 1.f, 0.f, 1.f},    //Bottom-right vertex (green)
     {-1.f, -1.f, 0.f,   0.f, 0.f, 1.f, 1.f}     // Bottom-left vertex (blue)
 };
+
+//큐브 하드코딩
+FVertexSimple cube_vertices[] = 
+{
+    // Front face (Z+)
+	{ -0.5f, -0.5f,  0.5f,  1.0f, 0.0f, 0.0f, 1.0f }, // Bottom-left (red)
+	{ -0.5f,  0.5f,  0.5f,  1.0f, 1.0f, 0.0f, 1.0f }, // Top-left (yellow)
+	{  0.5f, -0.5f,  0.5f,  0.0f, 1.0f, 0.0f, 1.0f }, // Bottom-right (green)
+	{ -0.5f,  0.5f,  0.5f,  1.0f, 1.0f, 0.0f, 1.0f }, // Top-left (yellow)
+	{  0.5f,  0.5f,  0.5f,  0.0f, 0.0f, 1.0f, 1.0f }, // Top-right (blue)
+	{  0.5f, -0.5f,  0.5f,  0.0f, 1.0f, 0.0f, 1.0f }, // Bottom-right (green)
+
+	// Back face (Z-)
+	{ -0.5f, -0.5f, -0.5f,  0.0f, 1.0f, 1.0f, 1.0f }, // Bottom-left (cyan)
+	{  0.5f, -0.5f, -0.5f,  1.0f, 0.0f, 1.0f, 1.0f }, // Bottom-right (magenta)
+	{ -0.5f,  0.5f, -0.5f,  0.0f, 0.0f, 1.0f, 1.0f }, // Top-left (blue)
+	{ -0.5f,  0.5f, -0.5f,  0.0f, 0.0f, 1.0f, 1.0f }, // Top-left (blue)
+	{  0.5f, -0.5f, -0.5f,  1.0f, 0.0f, 1.0f, 1.0f }, // Bottom-right (magenta)
+	{  0.5f,  0.5f, -0.5f,  1.0f, 1.0f, 0.0f, 1.0f }, // Top-right (yellow)
+
+	// Left face (X-)
+	{ -0.5f, -0.5f, -0.5f,  1.0f, 0.0f, 1.0f, 1.0f }, // Bottom-left (purple)
+	{ -0.5f,  0.5f, -0.5f,  0.0f, 0.0f, 1.0f, 1.0f }, // Top-left (blue)
+	{ -0.5f, -0.5f,  0.5f,  0.0f, 1.0f, 0.0f, 1.0f }, // Bottom-right (green)
+	{ -0.5f,  0.5f, -0.5f,  0.0f, 0.0f, 1.0f, 1.0f }, // Top-left (blue)
+	{ -0.5f,  0.5f,  0.5f,  1.0f, 1.0f, 0.0f, 1.0f }, // Top-right (yellow)
+	{ -0.5f, -0.5f,  0.5f,  0.0f, 1.0f, 0.0f, 1.0f }, // Bottom-right (green)
+
+	// Right face (X+)
+	{  0.5f, -0.5f, -0.5f,  1.0f, 0.5f, 0.0f, 1.0f }, // Bottom-left (orange)
+	{  0.5f, -0.5f,  0.5f,  0.5f, 0.5f, 0.5f, 1.0f }, // Bottom-right (gray)
+	{  0.5f,  0.5f, -0.5f,  0.5f, 0.0f, 0.5f, 1.0f }, // Top-left (purple)
+	{  0.5f,  0.5f, -0.5f,  0.5f, 0.0f, 0.5f, 1.0f }, // Top-left (purple)
+	{  0.5f, -0.5f,  0.5f,  0.5f, 0.5f, 0.5f, 1.0f }, // Bottom-right (gray)
+	{  0.5f,  0.5f,  0.5f,  0.0f, 0.0f, 0.5f, 1.0f }, // Top-right (dark blue)
+
+	// Top face (Y+)
+	{ -0.5f,  0.5f, -0.5f,  0.0f, 1.0f, 0.5f, 1.0f }, // Bottom-left (light green)
+	{ -0.5f,  0.5f,  0.5f,  0.0f, 0.5f, 1.0f, 1.0f }, // Top-left (cyan)
+	{  0.5f,  0.5f, -0.5f,  0.5f, 1.0f, 1.0f, 1.0f }, // Bottom-right (white)
+	{ -0.5f,  0.5f,  0.5f,  0.0f, 0.5f, 1.0f, 1.0f }, // Top-left (cyan)
+	{  0.5f,  0.5f,  0.5f,  0.5f, 0.5f, 0.0f, 1.0f }, // Top-right (brown)
+	{  0.5f,  0.5f, -0.5f,  0.5f, 1.0f, 1.0f, 1.0f }, // Bottom-right (white)
+
+	// Bottom face (Y-)
+	{ -0.5f, -0.5f, -0.5f,  0.5f, 0.5f, 0.0f, 1.0f }, // Bottom-left (brown)
+	{ -0.5f, -0.5f,  0.5f,  1.0f, 0.0f, 0.0f, 1.0f }, // Top-left (red)
+	{  0.5f, -0.5f, -0.5f,  1.0f, 0.0f, 0.5f, 1.0f }, // Bottom-right (purple)
+	{ -0.5f, -0.5f,  0.5f,  1.0f, 0.0f, 0.0f, 1.0f }, // Top-left (red)
+	{  0.5f, -0.5f,  0.5f,  0.0f, 1.0f, 0.0f, 1.0f }, // Top-right (green)
+	{  0.5f, -0.5f, -0.5f,  1.0f, 0.0f, 0.5f, 1.0f }, // Bottom-right (purple)
+};
+
+//구는 헤더파일로 대체
+#include "Sphere.h"
+
 // clang-format on
 
 #pragma region 렌더러 클래스
@@ -314,7 +374,7 @@ class URenderer
 };
 #pragma endregion
 
-extern LRESULT ImGUI_ImplWin32_WndProcHandler(HWND hwnd, UINT msg,
+extern LRESULT ImGui_ImplWin32_WndProcHandler(HWND hwnd, UINT msg,
                                               WPARAM wParam, LPARAM lParam);
 
 /*
@@ -327,7 +387,7 @@ extern LRESULT ImGUI_ImplWin32_WndProcHandler(HWND hwnd, UINT msg,
  */
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
-    if (ImGUI_ImplWin32_WndProcHandler(hWnd, message, wParam, lParam))
+    if (ImGui_ImplWin32_WndProcHandler(hWnd, message, wParam, lParam))
     {
         return true;
     }
@@ -384,18 +444,37 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
     // 렌더러 생성 직후 쉐이더 생성 함수 호출
     renderer.CreateShader();
 
-    //ImGui 생성 및 초기화
+    // ImGui 생성 및 초기화
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO();
     ImGui_ImplWin32_Init((void*)hWnd);
     ImGui_ImplDX11_Init(renderer.Device, renderer.DeviceContext);
 
-
     // Renderer와 Shader 생성 이후에 Vertex Buffer 생성
-    FVertexSimple* vertices = triangle_vertices;
+    //삼각형 렌더링
+    /*FVertexSimple* vertices = triangle_vertices;
     UINT ByteWidth = sizeof(triangle_vertices);
-    UINT numVertices = sizeof(triangle_vertices) / sizeof(FVertexSimple);
+    UINT numVertices = sizeof(triangle_vertices) / sizeof(FVertexSimple);*/
+
+    //큐브 렌더링
+    /*FVertexSimple* vertices = cube_vertices;
+    UINT ByteWidth = sizeof(cube_vertices);
+    UINT numVertices = sizeof(cube_vertices) / sizeof(FVertexSimple);*/
+
+    //구 렌더링
+    FVertexSimple* vertices = sphere_vertices;
+    UINT ByteWidth = sizeof(sphere_vertices);
+    UINT numVertices = sizeof(sphere_vertices) / sizeof(FVertexSimple);
+
+    //구 크기 조절
+    float sacleMod = 0.1f;
+    for (UINT i = 0; i < numVertices; ++i)
+    {
+        sphere_vertices[i].x *= sacleMod;
+        sphere_vertices[i].y *= sacleMod;
+        sphere_vertices[i].z *= sacleMod;
+    }
 
     // 생성
     D3D11_BUFFER_DESC vertexbufferdesc = {};
@@ -439,12 +518,31 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
         // 생성한 버텍스 버퍼를 넘겨 실질적인 렌더링 요청
         renderer.RenderPrimitive(vertexBuffer, numVertices);
 
+        ImGui_ImplDX11_NewFrame();
+        ImGui_ImplWin32_NewFrame();
+        ImGui::NewFrame();
+
+        // 이후 ImGui UI 컨트롤 추가는 ImGui::NewFrame()과 ImGui::Render()
+        // 사이인 이곳에 위치
+        ImGui::Begin("Jungle Property Window");
+        ImGui::Text("Hello Jungle World!");
+        if (ImGui::Button("Quit this app"))
+        {
+            // 현재 윈도우에 quit 메세지를 메세지 큐로 보냄
+            PostMessage(hWnd, WM_QUIT, 0, 0);
+        }
+        ImGui::End();
+
+        ImGui::Render();
+
+        ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
+
         // 현재 화면에 보여지는 버퍼와 그리기 작업을 위한 버퍼를 서로 교환
         renderer.SwapBuffer();
         ///////////////////////////////////////
     }
 
-    //여기에서 ImGui 소멸
+    // 여기에서 ImGui 소멸
     ImGui_ImplDX11_Shutdown();
     ImGui_ImplWin32_Shutdown();
     ImGui::DestroyContext();
