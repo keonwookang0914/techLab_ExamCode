@@ -59,7 +59,7 @@ class URenderer
 
         // 스왑 체인 설정 구조체 초기화
         DXGI_SWAP_CHAIN_DESC swapChainDesc = {};
-        swapChainDesc.BufferDesc.Width = 0;  // 창 크기에 맞게 자동으로 설정
+        swapChainDesc.BufferDesc.Width = 0;   // 창 크기에 맞게 자동으로 설정
         swapChainDesc.BufferDesc.Height = 0;  // 창 크기에 맞게 자동으로 설정
         swapChainDesc.BufferDesc.Format =
             DXGI_FORMAT_B8G8R8A8_UNORM;      // 색상 포맷
@@ -78,10 +78,10 @@ class URenderer
             featurelevels, ARRAYSIZE(featurelevels), D3D11_SDK_VERSION,
             &swapChainDesc, &SwapChain, &Device, nullptr, &DeviceContext);
 
-        //생성된 스왑 체인의 정보 가져오기
+        // 생성된 스왑 체인의 정보 가져오기
         SwapChain->GetDesc(&swapChainDesc);
 
-        //뷰포트 정보 설정
+        // 뷰포트 정보 설정
         ViewportInfo = { 0.0f,
                          0.0f,
                          (float)swapChainDesc.BufferDesc.Width,
@@ -90,12 +90,12 @@ class URenderer
                          1.0f };
     }
 
-    //Direct3D 장치 및 스왑 체인을 해제하는 함수
+    // Direct3D 장치 및 스왑 체인을 해제하는 함수
     void ReleaseDeviceAndSwapChain()
     {
         if (DeviceContext)
         {
-            DeviceContext->Flush(); //남아있는 gpu 명령 실행
+            DeviceContext->Flush();  // 남아있는 gpu 명령 실행
         }
 
         if (SwapChain)
@@ -115,22 +115,24 @@ class URenderer
         }
     }
 
-    //프레임 버퍼를 생성하는 함수
+    // 프레임 버퍼를 생성하는 함수
     void CreateFrameBuffer()
     {
-        //스왑 체인으로부터 백 버퍼 텍스쳐 가져오기
+        // 스왑 체인으로부터 백 버퍼 텍스쳐 가져오기
         SwapChain->GetBuffer(0, __uuidof(ID3D11Texture2D),
                              (void**)&FrameBuffer);
 
-        //렌더 타겟 뷰 설정
+        // 렌더 타겟 뷰 설정
         D3D11_RENDER_TARGET_VIEW_DESC frameBufferRTVDesc = {};
-        frameBufferRTVDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM_SRGB; //색상 포맷
-        frameBufferRTVDesc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D; //2D 텍스처
+        frameBufferRTVDesc.Format =
+            DXGI_FORMAT_B8G8R8A8_UNORM_SRGB;  // 색상 포맷
+        frameBufferRTVDesc.ViewDimension =
+            D3D11_RTV_DIMENSION_TEXTURE2D;  // 2D 텍스처
 
         Device->CreateRenderTargetView(FrameBuffer, &frameBufferRTVDesc,
                                        &FrameBufferRTV);
     }
-    //프레임 버퍼 해제하는 함수
+    // 프레임 버퍼 해제하는 함수
     void ReleaseFrameBuffer()
     {
         if (FrameBuffer)
@@ -146,17 +148,17 @@ class URenderer
         }
     }
 
-    //래스터라이저 상태를 생성하는 함수
+    // 래스터라이저 상태를 생성하는 함수
     void CreateRasterizerState()
     {
         D3D11_RASTERIZER_DESC rasterizerdesc = {};
-        rasterizerdesc.FillMode = D3D11_FILL_SOLID; //채우기 모드
-        rasterizerdesc.CullMode = D3D11_CULL_BACK; //백 페이스 컬링
+        rasterizerdesc.FillMode = D3D11_FILL_SOLID;  // 채우기 모드
+        rasterizerdesc.CullMode = D3D11_CULL_BACK;   // 백 페이스 컬링
 
         Device->CreateRasterizerState(&rasterizerdesc, &RasterizerState);
     }
 
-    //래스터라이저 상태를 해제하는 변수
+    // 래스터라이저 상태를 해제하는 변수
     void ReleaseRasterizerState()
     {
         if (RasterizerState)
@@ -166,22 +168,22 @@ class URenderer
         }
     }
 
-    //렌더링에 사용된 모든 리소스를 해제하는 함수
+    // 렌더링에 사용된 모든 리소스를 해제하는 함수
     void Release()
     {
         RasterizerState->Release();
 
-        //렌더 타겟 초기화
+        // 렌더 타겟 초기화
         DeviceContext->OMSetRenderTargets(0, nullptr, nullptr);
 
         ReleaseFrameBuffer();
         ReleaseDeviceAndSwapChain();
     }
 
-    //스왑체인의 백 버퍼와 프론트 버퍼를 교체하여 화면에 출력
+    // 스왑체인의 백 버퍼와 프론트 버퍼를 교체하여 화면에 출력
     void SwapBuffer()
     {
-        SwapChain->Present(1, 0); //1: VSync 활성화
+        SwapChain->Present(1, 0);  // 1: VSync 활성화
     }
 };
 
@@ -240,6 +242,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
                                 WS_POPUP | WS_VISIBLE | WS_OVERLAPPEDWINDOW,
                                 CW_USEDEFAULT, CW_USEDEFAULT, 1024, 1024,
                                 nullptr, nullptr, hInstance, nullptr);
+    // Renderer 클래스 생성
+    URenderer renderer;
+
+    // D3D11 생성하는 함수 호출
+    renderer.Create(hWnd);
 
     bool bIsExit = false;
 
@@ -265,10 +272,15 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
         ///////////////////////////////////////
         // 매번 실행되는 코드를 여기에 추가합니다
 
+        //현재 화면에 보여지는 버퍼와 그리기 작업을 위한 버퍼를 서로 교환
+        renderer.SwapBuffer();
         ///////////////////////////////////////
     }
 
     // 소멸하는 코드를 여기에 추가합니다
+
+    //D3D11 소멸시키는 함수를 호출
+    renderer.Release();
 
     return 0;
 }
