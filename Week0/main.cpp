@@ -1,5 +1,8 @@
 #include <windows.h>
 #include <array>
+#include <format>
+#include <iostream>
+#include <string>
 // 먼저 D3D11 관련한 라이브러리와 헤더를 Main 소스 파일에 추가합니다.
 
 // D3D 사용에 필요한 라이브러리들을 링크합니다.
@@ -7,7 +10,7 @@
 #pragma comment(lib, "d3d11")
 #pragma comment(lib, "d3dcompiler")
 
-#pragma warning(disable: 4819)
+#pragma warning(disable : 4819)
 
 // D3D에 사용할 헤더파일들을 포함합니다.
 #include <d3d11.h>
@@ -31,11 +34,19 @@ struct FVector
 {
     float x, y, z;
     FVector(float _x = 0, float _y = 0, float _z = 0) : x(_x), y(_y), z(_z) { }
+
 	void operator+=(const FVector& rhs)
 	{
 		x += rhs.x;
 		y += rhs.y;
 		z += rhs.z;
+	}
+
+	void operator*=(const float& value)
+	{
+		x *= value;
+		y *= value;
+		z *= value;
 	}
 };
 
@@ -137,6 +148,8 @@ class URenderer
         0.025f, 0.025f, 0.025f, 1.f
     };  // 화면을 초기화(clear) 할때 사용할 색상 RGBA
     D3D11_VIEWPORT ViewportInfo;  // 렌더링 영역 정의하는 뷰포트 정보
+
+    bool bUseVSync = true;
 
  public:
     // Renderer 초기화 함수
@@ -285,7 +298,7 @@ class URenderer
     // 스왑체인의 백 버퍼와 프론트 버퍼를 교체하여 화면에 출력
     void SwapBuffer()
     {
-        SwapChain->Present(1, 0);  // 1: VSync 활성화
+        SwapChain->Present(bUseVSync, 0);  // 1: VSync 활성화
     }
 
     /******************************************
@@ -573,7 +586,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 
     // 도형의 움직임 정도를 담을 offset 변수.
     FVector offset(0.f);
-	// 도형의 속도를 담을 변수
+    // 도형의 속도를 담을 변수
     FVector velocity(0.f);
 
     bool bIsExit = false;
@@ -599,29 +612,38 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
     const float sphereRadius = 1.f;
 
     bool bBoundBallToScreen = true;
-	//핀볼 움직임 여부를 나타내는 bPinballMovement 정의
+    // 핀볼 움직임 여부를 나타내는 bPinballMovement 정의
     bool bPinballMovement = true;
-	//핀볼에 임의의속도를 부여
-    // 0.001f 를 조절해공의 초기 속도 조절
-    const float ballSpeed = 0.0005f;
-    velocity.x = ((float)(rand() % 100 - 50)) * ballSpeed; 
+    // 핀볼에 임의의속도를 부여
+    //  0.001f 를 조절해공의 초기 속도 조절
+    float ballSpeed = 0.0005f;
+    float prevSpeed = 0.0005f;
+    velocity.x = ((float)(rand() % 100 - 50)) * ballSpeed;
     velocity.y = ((float)(rand() % 100 - 50)) * ballSpeed;
 
-	// FPS 제한을 위한 설정
-    const int targetFPS = 60;
-    const double targetFrameTime = 1000.0 / targetFPS; //한 프레임의 목표 시간(밀리초 단위)
+    // 핀볼에 fps제한을 할 것인지 말 것인지 설정하는 함수
+    bool bLimitFPS = true;
 
-	//고성능 타이머 초기화
+    // FPS 제한을 위한 설정
+    const int targetFPS = 60;
+    const double targetFrameTime =
+        1000.0 / targetFPS;  // 한 프레임의 목표 시간(밀리초 단위)
+
+    // 고성능 타이머 초기화
     LARGE_INTEGER frequency;
     QueryPerformanceFrequency(&frequency);
 
-	LARGE_INTEGER startTime, endTime;
+    LARGE_INTEGER startTime, endTime;
     double elapsedTime = 0.0;
-    int frameCount = 0;
-    double frameRate = 0.0;
+    int frameCount =
+        0;  // 1초(1000ms)동안 프레임이 몇번 갱신됐는지 count 하는 변수
+    double frameRate =
+        0.0;  // elapsedTime을 계속해서 받는 함수로, 누적합이 몇인지 체크
+    int UICount = 1;
+    int prevCount = 60;
     while (bIsExit == false)
     {
-		//루프 시간 기록
+        // 루프 시간 기록
         QueryPerformanceCounter(&startTime);
 
         MSG msg;
@@ -657,8 +679,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
                     offset.y -= 0.01f;
                 }
             }
-            //키보드 처리 직후에 화면 밖을 벗어났다면 화면 안쪽으로 위치시킨다
-			//화면을 벗어나지 않게 처리
+            // 키보드 처리 직후에 화면 밖을 벗어났다면 화면 안쪽으로 위치시킨다
+            // 화면을 벗어나지 않게 처리
             if (bBoundBallToScreen)
             {
                 float renderRadius = sphereRadius * scaleMod;
@@ -738,10 +760,17 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
         ImGui::Begin("Jungle Property Window");
         //**********************IMGUI section Start**********************
         ImGui::Text("Hello Jungle World!");
-        
+
         ImGui::Checkbox("Bound Ball To Screen", &bBoundBallToScreen);
-		//핀볼 움직임 켜고 끌 수 있는 UI와 연결
+        // 핀볼 움직임 켜고 끌 수 있는 UI와 연결
         ImGui::Checkbox("PinBall Movement", &bPinballMovement);
+        ImGui::Checkbox("Use VSync", &renderer.bUseVSync);
+        ImGui::Checkbox("Limit FPS", &bLimitFPS);
+        ImGui::Text("Speed: (%f, %f, %f)", velocity.x, velocity.y, velocity.z);
+
+        ImGui::Text("Avg %.3f ms/frame | %.1f FPS",
+                    1000.0f / ImGui::GetIO().Framerate,
+                    ImGui::GetIO().Framerate);
 
         //**********************IMGUI section Start**********************
         ImGui::End();
@@ -753,13 +782,23 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
         // 현재 화면에 보여지는 버퍼와 그리기 작업을 위한 버퍼를 서로 교환
         renderer.SwapBuffer();
         ///////////////////////////////////////
-		do 
-		{
-            Sleep(0);
+        if (bLimitFPS)
+        {
+            do
+            {
+                Sleep(0);
 
-			QueryPerformanceCounter(&endTime);
-            elapsedTime = (endTime.QuadPart - startTime.QuadPart) * 1000.0 / frequency.QuadPart;
-        } while (elapsedTime < targetFrameTime);
+                QueryPerformanceCounter(&endTime);
+                elapsedTime = (endTime.QuadPart - startTime.QuadPart) * 1000.0 /
+                              frequency.QuadPart;
+            } while (elapsedTime < targetFrameTime);
+        }
+        else
+        {
+            QueryPerformanceCounter(&endTime);
+            elapsedTime = (endTime.QuadPart - startTime.QuadPart) * 1000.0 /
+                          frequency.QuadPart;
+        }
     }
 
     // 여기에서 ImGui 소멸
