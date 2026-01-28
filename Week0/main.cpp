@@ -35,6 +35,40 @@ struct FVector
     float x, y, z;
     FVector(float _x = 0, float _y = 0, float _z = 0) : x(_x), y(_y), z(_z) { }
 
+	FVector operator+(const FVector& rhs)
+	{
+		FVector ret;
+		ret.x = x + rhs.x;
+		ret.y = y + rhs.y;
+		ret.z = z + rhs.z;
+
+		return ret;
+	}
+
+	FVector operator-(const FVector& rhs)
+	{
+		FVector ret;
+		ret.x = x - rhs.x;
+		ret.y = y - rhs.y;
+		ret.z = z - rhs.z;
+		return ret;
+	}
+
+	FVector operator*(const int rhs) const
+	{
+		FVector ret;
+		ret.x = x * rhs;
+		ret.y = y * rhs;
+		ret.z = z * rhs;
+		return ret;
+	}
+	friend FVector operator*(const float lhs, const FVector& rhs)
+	{
+		return rhs * lhs;
+	}
+
+
+
 	void operator+=(const FVector& rhs)
 	{
 		x += rhs.x;
@@ -523,6 +557,14 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
                    LPSTR lpCmdLine, int nShowCmd)
 {
+    FVector ret;
+    FVector lhs(1.f, 1.f, 1.f), rhs(1.f, 1.f, 1.f);
+    ret = lhs + rhs;
+    ret = lhs - rhs;
+    ret = lhs * 1.0f;
+    ret = lhs * 50;
+    ret = 50 * lhs;
+
     // 윈도우 클래스 지정
     WCHAR WindowClass[] = L"JungleWindowClass";
 
@@ -553,6 +595,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 
     // 상수함수 생성
     renderer.CreateConstantBuffer();
+    
 
     // ImGui 생성 및 초기화
     IMGUI_CHECKVERSION();
