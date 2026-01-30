@@ -106,7 +106,7 @@ struct FVector
 		return sqrt(LengthSquare());
 	}
 
-	FVector Normalize()
+	void Normalize()
 	{
 		float len = Length();
 		if (Length() < std::numeric_limits<float>::lowest())
