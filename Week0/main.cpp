@@ -1,8 +1,4 @@
 ﻿#include <windows.h>
-#include <array>
-#include <format>
-#include <iostream>
-#include <string>
 // 먼저 D3D11 관련한 라이브러리와 헤더를 Main 소스 파일에 추가합니다.
 
 // D3D 사용에 필요한 라이브러리들을 링크합니다.
