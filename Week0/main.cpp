@@ -1,4 +1,4 @@
-#include <windows.h>
+﻿#include <windows.h>
 #include <array>
 #include <format>
 #include <iostream>
@@ -28,120 +28,118 @@ struct FVertexSimple
 	float r, g, b, a;  // color
 };
 
-// Structure for a 3D Vector
 struct FVector
 {
 	float x, y, z;
 	FVector(float _x = 0.f, float _y = 0.f, float _z = 0.f) : x(_x), y(_y), z(_z) {}
-	//vector + vector
-	const FVector operator+(const FVector& rhs) const
+	static float DotProduct(const FVector& lhs, const FVector& rhs)
 	{
-		FVector ret;
-		ret.x = x + rhs.x;
-		ret.y = y + rhs.y;
-		ret.z = z + rhs.z;
-
-		return ret;
-	}
-	//vector - vector
-	const FVector operator-(const FVector& rhs) const
-	{
-		FVector ret;
-		ret.x = x - rhs.x;
-		ret.y = y - rhs.y;
-		ret.z = z - rhs.z;
-		return ret;
-	}
-	// Vector * scalar
-	const FVector operator*(const float rhs) const
-	{
-		FVector ret;
-		ret.x = x * rhs;
-		ret.y = y * rhs;
-		ret.z = z * rhs;
-		return ret;
+		return (lhs.x * rhs.x + lhs.y * rhs.y + lhs.z * rhs.z);
 	}
 
-	// Scalar * Vector
-	const friend FVector operator*(const float lhs, const FVector& rhs)
+	static FVector CrossProduct(const FVector& lhs, const FVector& rhs)
 	{
-		return rhs * lhs;
+		return {
+			lhs.y * rhs.z - lhs.z * rhs.y,
+			lhs.z * rhs.x - lhs.x * rhs.z,
+			lhs.x * rhs.y - lhs.y * rhs.x
+		};
 	}
-	// vector += vector
-	void operator+=(const FVector& rhs)
+
+	float Dot(const FVector& rhs)
+	{
+		return DotProduct(*this, rhs);
+	}
+
+	FVector Cross(const FVector& rhs)
+	{
+		return CrossProduct(*this, rhs);
+	}
+
+	FVector operator+(const FVector& rhs) const
+	{
+		return { x + rhs.x, y + rhs.y, z + rhs.z };
+	}
+	FVector& operator+=(const FVector& rhs)
 	{
 		x += rhs.x;
 		y += rhs.y;
 		z += rhs.z;
+		return *this;
+	}
+	FVector operator-(const FVector& rhs) const
+	{
+		return { x - rhs.x, y - rhs.y, z - rhs.z };
 	}
 
-	void operator-=(const FVector& rhs)
+	FVector& operator-=(const FVector& rhs)
 	{
 		x -= rhs.x;
 		y -= rhs.y;
 		z -= rhs.z;
+		return *this;
 	}
 
-	void operator*=(const float& rhs)
+	FVector operator*(const float rhs) const
+	{
+		return { x * rhs, y * rhs, z * rhs };
+	}
+
+	FVector& operator*=(const float rhs)
 	{
 		x *= rhs;
 		y *= rhs;
 		z *= rhs;
+		return *this;
 	}
 
-	void operator/=(const float& rhs)
+	FVector operator/(const float rhs) const
+	{
+		return { x / rhs, y / rhs, z / rhs };
+	}
+
+	FVector& operator/=(const float rhs)
 	{
 		x /= rhs;
 		y /= rhs;
 		z /= rhs;
+		return *this;
 	}
 
-	float LengthSquare()
+	float LengthSquare() const
 	{
-		return x * x + y * y;
+		return (x * x + y * y + z * z);
 	}
 
-	float Length()
+	float Length() const
 	{
-		return sqrt(LengthSquare());
+		return sqrtf(LengthSquare());
 	}
 
-	void Normalize()
+	FVector& Normalize()
 	{
-		float len = Length();
-		if (Length() < std::numeric_limits<float>::lowest())
-			return;
-
-		x /= len;
-		y /= len;
+		float Len = Length();
+		if (Len > 0.0f)
+		{
+			x /= Len;
+			y /= Len;
+			z /= Len;
+		}
+		return *this;
 	}
 
-	float DotProduct(const FVector& rhs)
-	{
-		return x * rhs.x + y * rhs.y;
-	}
-
-	float CrossProduct(const FVector& rhs)
-	{
-		return x * rhs.y - rhs.x * y;
-	}
-
-	FVector operator-()
-	{
-		return FVector(-x, -y, -z);
-	}
-
-	bool operator==(const FVector& rhs)
-	{
-		return (x == rhs.x && y == rhs.y && z == rhs.z);
-	}
-
-	bool operator!=(const FVector& rhs)
-	{
-		return !(*this == rhs);
-	}
-
+	static const FVector UnitX;
+	static const FVector UnitY;
+	static const FVector UnitZ;
+	static const FVector One;
+	static const FVector Zero;
 };
+
+const FVector FVector::UnitX = { 1.f, 0.f, 0.f };
+const FVector FVector::UnitY = { 0.f, 1.f, 0.f };
+const FVector FVector::UnitZ = { 0.f, 0.f, 1.f };
+const FVector FVector::Zero = { 0.f, 0.f, 0.f };
+const FVector FVector::One = { 1.f, 1.f, 1.f };
 #pragma region Base prmitive
 /**********************************************
 *              Basic Polygon
@@ -600,7 +598,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	default:
 		return DefWindowProc(hWnd, message, wParam, lParam);
 	}
-
 	return 0;
 }
 
