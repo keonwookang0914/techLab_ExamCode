@@ -557,15 +557,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
                    LPSTR lpCmdLine, int nShowCmd)
 {
-    FVector ret;
-    FVector lhs(1.f, 1.f, 1.f), rhs(1.f, 1.f, 1.f);
-    ret = lhs + rhs;
-    ret = lhs - rhs;
-    ret = lhs * 1.0f;
-    ret = lhs * 50;
-    ret = 50 * lhs;
-
-    // 윈도우 클래스 지정
+	// 윈도우 클래스 지정
     WCHAR WindowClass[] = L"JungleWindowClass";
 
     // 윈도우 타이틀바에 표시될 이름
