@@ -21,8 +21,7 @@
 #include "ImGui/imgui_impl_win32.h"
 #include "ImGui/imgui_internal.h"
 
-// clang-format off
-// 삼각형 정점들 정의
+// 정점 정의 구조체
 struct FVertexSimple
 {
 	float x, y, z;     // position
@@ -33,9 +32,9 @@ struct FVertexSimple
 struct FVector
 {
 	float x, y, z;
-	FVector(float _x = 0, float _y = 0, float _z = 0) : x(_x), y(_y), z(_z) {}
-
-	FVector operator+(const FVector& rhs)
+	FVector(float _x = 0.f, float _y = 0.f, float _z = 0.f) : x(_x), y(_y), z(_z) {}
+	//vector + vector
+	const FVector operator+(const FVector& rhs) const
 	{
 		FVector ret;
 		ret.x = x + rhs.x;
@@ -44,8 +43,8 @@ struct FVector
 
 		return ret;
 	}
-
-	FVector operator-(const FVector& rhs)
+	//vector - vector
+	const FVector operator-(const FVector& rhs) const
 	{
 		FVector ret;
 		ret.x = x - rhs.x;
@@ -53,8 +52,8 @@ struct FVector
 		ret.z = z - rhs.z;
 		return ret;
 	}
-
-	FVector operator*(const float rhs) const
+	// Vector * scalar
+	const FVector operator*(const float rhs) const
 	{
 		FVector ret;
 		ret.x = x * rhs;
@@ -63,11 +62,12 @@ struct FVector
 		return ret;
 	}
 
-	friend FVector operator*(const float lhs, const FVector& rhs)
+	// Scalar * Vector
+	const friend FVector operator*(const float lhs, const FVector& rhs)
 	{
 		return rhs * lhs;
 	}
-
+	// vector += vector
 	void operator+=(const FVector& rhs)
 	{
 		x += rhs.x;
@@ -75,16 +75,76 @@ struct FVector
 		z += rhs.z;
 	}
 
-	void operator*=(const float& value)
+	void operator-=(const FVector& rhs)
 	{
-		x *= value;
-		y *= value;
-		z *= value;
+		x -= rhs.x;
+		y -= rhs.y;
+		z -= rhs.z;
 	}
-};
 
+	void operator*=(const float& rhs)
+	{
+		x *= rhs;
+		y *= rhs;
+		z *= rhs;
+	}
+
+	void operator/=(const float& rhs)
+	{
+		x /= rhs;
+		y /= rhs;
+		z /= rhs;
+	}
+
+	float LengthSquare()
+	{
+		return x * x + y * y;
+	}
+
+	float Length()
+	{
+		return sqrt(LengthSquare());
+	}
+
+	FVector Normalize()
+	{
+		float len = Length();
+		if (Length() < std::numeric_limits<float>::lowest())
+			return;
+
+		x /= len;
+		y /= len;
+	}
+
+	float DotProduct(const FVector& rhs)
+	{
+		return x * rhs.x + y * rhs.y;
+	}
+
+	float CrossProduct(const FVector& rhs)
+	{
+		return x * rhs.y - rhs.x * y;
+	}
+
+	FVector operator-()
+	{
+		return FVector(-x, -y, -z);
+	}
+
+	bool operator==(const FVector& rhs)
+	{
+		return (x == rhs.x && y == rhs.y && z == rhs.z);
+	}
+
+	bool operator!=(const FVector& rhs)
+	{
+		return !(*this == rhs);
+	}
+
+};
+#pragma region Base prmitive
 /**********************************************
-* Basic Polygon (NEVER clang-format)
+*              Basic Polygon
 **********************************************/
 
 //삼각형 하드코딩
@@ -150,7 +210,7 @@ FVertexSimple cube_vertices[] =
 //구는 헤더파일로 대체
 #include "Sphere.h"
 
-// clang-format on
+#pragma endregion
 
 #pragma region 렌더러 클래스
 // 렌더링 담당 클래스
