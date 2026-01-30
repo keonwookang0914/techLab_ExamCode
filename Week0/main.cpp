@@ -1,14 +1,9 @@
 ﻿#include <windows.h>
-// 먼저 D3D11 관련한 라이브러리와 헤더를 Main 소스 파일에 추가합니다.
 
-// D3D 사용에 필요한 라이브러리들을 링크합니다.
 #pragma comment(lib, "user32")
 #pragma comment(lib, "d3d11")
 #pragma comment(lib, "d3dcompiler")
 
-#pragma warning(disable : 4819)
-
-// D3D에 사용할 헤더파일들을 포함합니다.
 #include <d3d11.h>
 #include <d3dcompiler.h>
 
@@ -16,6 +11,16 @@
 #include "ImGui/imgui_impl_dx11.h"
 #include "ImGui/imgui_impl_win32.h"
 #include "ImGui/imgui_internal.h"
+
+
+// 어떤 도형을 렌더링하는지 나타내는 열거형
+enum ETypePrimitive
+{
+	EPT_Triangle,
+	EPT_Cube,
+	EPT_Sphere,
+	EPT_MAX
+};
 
 // 정점 정의 구조체
 struct FVertexSimple
@@ -136,9 +141,9 @@ const FVector FVector::UnitY = { 0.f, 1.f, 0.f };
 const FVector FVector::UnitZ = { 0.f, 0.f, 1.f };
 const FVector FVector::Zero = { 0.f, 0.f, 0.f };
 const FVector FVector::One = { 1.f, 1.f, 1.f };
-#pragma region Base prmitive
+#pragma region Primitive Vertex Data
 /**********************************************
-*              Basic Polygon
+*              Primitive Vertex Data
 **********************************************/
 
 //삼각형 하드코딩
@@ -210,31 +215,21 @@ FVertexSimple cube_vertices[] =
 // 렌더링 담당 클래스
 class URenderer
 {
-	/******************************************
-	 *          Shader Section
-	 ******************************************/
 public:
 	// Direct3D 장치(Device)와 장치 컨텍스트(Device Context) 및 스왑
 	// 체인(SwapChain) 관리를 위한 포인터
-	ID3D11Device* Device = nullptr;  // GPU와 통신하기 위한 Direct3D 장치
-	ID3D11DeviceContext* DeviceContext =
-		nullptr;  // GPU 명령 실행을 담당할 컨텍스트
-	IDXGISwapChain* SwapChain =
-		nullptr;  // 프레임 버퍼 교체에 사용되는 스왑 체인
+	ID3D11Device*			Device = nullptr;									// GPU와 통신하기 위한 Direct3D 장치
+	ID3D11DeviceContext*	DeviceContext = nullptr;							// GPU 명령 실행을 담당할 컨텍스트
+	IDXGISwapChain*			SwapChain = nullptr;								// 프레임 버퍼 교체에 사용되는 스왑 체인
 
 	// 렌더링에 필요한 리소스 및 상태를 관리하기 위한 변수
-	ID3D11Texture2D* FrameBuffer = nullptr;  // 화면 출력용 텍스쳐
-	ID3D11RenderTargetView* FrameBufferRTV =
-		nullptr;  // 텍스쳐를 렌더 타겟으로 사용하는 뷰
-	ID3D11RasterizerState* RasterizerState =
-		nullptr;  // 래스터라이저 상태(컬링, 채우기 모드 정의)
-	ID3D11Buffer* ConstantBuffer =
-		nullptr;  // 쉐이더에 데이터를 전달하기 위한 상수 버퍼
+	ID3D11Texture2D*		FrameBuffer = nullptr;								// 화면 출력용 텍스쳐
+	ID3D11RenderTargetView* FrameBufferRTV = nullptr;							// 텍스쳐를 렌더 타겟으로 사용하는 뷰
+	ID3D11RasterizerState*	RasterizerState = nullptr;							// 래스터라이저 상태(컬링, 채우기 모드 정의)
+	ID3D11Buffer*			ConstantBuffer = nullptr;							// 쉐이더에 데이터를 전달하기 위한 상수 버퍼
 
-	FLOAT ClearColor[4] = {
-		0.025f, 0.025f, 0.025f, 1.f
-	};  // 화면을 초기화(clear) 할때 사용할 색상 RGBA
-	D3D11_VIEWPORT ViewportInfo;  // 렌더링 영역 정의하는 뷰포트 정보
+	FLOAT					ClearColor[4] = { 0.025f, 0.025f, 0.025f, 1.f };	// 화면을 초기화(clear) 할때 사용할 색상 RGBA
+	D3D11_VIEWPORT			ViewportInfo;										// 렌더링 영역 정의하는 뷰포트 정보
 
 public:
 	// Renderer 초기화 함수
@@ -258,20 +253,19 @@ public:
 
 		// 스왑 체인 설정 구조체 초기화
 		DXGI_SWAP_CHAIN_DESC swapChainDesc = {};
-		swapChainDesc.BufferDesc.Width = 0;   // 창 크기에 맞게 자동으로 설정
-		swapChainDesc.BufferDesc.Height = 0;  // 창 크기에 맞게 자동으로 설정
+		swapChainDesc.BufferDesc.Width = 0;							// 창 크기에 맞게 자동으로 설정
+		swapChainDesc.BufferDesc.Height = 0;						// 창 크기에 맞게 자동으로 설정
 		swapChainDesc.BufferDesc.Format =
-			DXGI_FORMAT_B8G8R8A8_UNORM;      // 색상 포맷
-		swapChainDesc.SampleDesc.Count = 1;  // 멀티 샘플링 비활성화
+			DXGI_FORMAT_B8G8R8A8_UNORM;								// 색상 포맷
+		swapChainDesc.SampleDesc.Count = 1;							// 멀티 샘플링 비활성화
 		swapChainDesc.BufferUsage =
-			DXGI_USAGE_RENDER_TARGET_OUTPUT;   // 렌더 타겟으로 사용
-		swapChainDesc.BufferCount = 2;         // 더블 버퍼링
-		swapChainDesc.OutputWindow = hWindow;  // 렌더링할 창 핸들
-		swapChainDesc.Windowed = TRUE;         // 창 모드
-		swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;  // 스왑 방식
+			DXGI_USAGE_RENDER_TARGET_OUTPUT;						// 렌더 타겟으로 사용
+		swapChainDesc.BufferCount = 2;								// 더블 버퍼링
+		swapChainDesc.OutputWindow = hWindow;						// 렌더링할 창 핸들
+		swapChainDesc.Windowed = TRUE;								// 창 모드
+		swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;	// 스왑 방식
 
 		// Direct3D 장치와 스왑 체인 생성
-
 		D3D11CreateDeviceAndSwapChain(
 			nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr,
 			D3D11_CREATE_DEVICE_BGRA_SUPPORT | D3D11_CREATE_DEVICE_DEBUG,
@@ -282,12 +276,14 @@ public:
 		SwapChain->GetDesc(&swapChainDesc);
 
 		// 뷰포트 정보 설정
-		ViewportInfo = { 0.0f,
-						 0.0f,
-						 (float)swapChainDesc.BufferDesc.Width,
-						 (float)swapChainDesc.BufferDesc.Height,
-						 0.0f,
-						 1.0f };
+		ViewportInfo = { 
+			0.0f,									// TopLeftX
+			0.0f,									// TopLeftY
+			(float)swapChainDesc.BufferDesc.Width,	// Width
+			(float)swapChainDesc.BufferDesc.Height, // Height
+			0.0f,									// MinDepth
+			1.0f									// MaxDepth
+		};
 	}
 
 	// Direct3D 장치 및 스왑 체인을 해제하는 함수
@@ -319,18 +315,14 @@ public:
 	void CreateFrameBuffer()
 	{
 		// 스왑 체인으로부터 백 버퍼 텍스쳐 가져오기
-		SwapChain->GetBuffer(0, __uuidof(ID3D11Texture2D),
-			OUT (void**)&FrameBuffer);
+		SwapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), OUT (void**)&FrameBuffer);
 
 		// 렌더 타겟 뷰 설정
 		D3D11_RENDER_TARGET_VIEW_DESC frameBufferRTVDesc = {};
-		frameBufferRTVDesc.Format =
-			DXGI_FORMAT_B8G8R8A8_UNORM_SRGB;  // 색상 포맷
-		frameBufferRTVDesc.ViewDimension =
-			D3D11_RTV_DIMENSION_TEXTURE2D;  // 2D 텍스처
+		frameBufferRTVDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM_SRGB;		// 색상 포맷
+		frameBufferRTVDesc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D;	// 2D 텍스처
 
-		Device->CreateRenderTargetView(FrameBuffer, &frameBufferRTVDesc,
-			OUT &FrameBufferRTV);
+		Device->CreateRenderTargetView(FrameBuffer, &frameBufferRTVDesc, OUT &FrameBufferRTV);
 	}
 	// 프레임 버퍼 해제하는 함수
 	void ReleaseFrameBuffer()
@@ -389,7 +381,6 @@ public:
 	/******************************************
 	 *     vertex, pixel Shader Section
 	 ******************************************/
-
 public:
 	ID3D11VertexShader* SimpleVertexShader;
 	ID3D11PixelShader* SimplePixelShader;
@@ -572,11 +563,6 @@ extern LRESULT ImGui_ImplWin32_WndProcHandler(HWND hwnd, UINT msg,
 
 /*
  * 각종 메세지를 처리할 함수
- * @param hWnd:
- * @param message
- * @param wParam
- * @param lParam
- * @return 콜백함수
  */
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
@@ -599,14 +585,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 /*
  * 가장 기본이 되는 메인 함수
- * @param hIntance: 인스턴스
- * @param hPrevInstance: 이전 인스턴스
- * @param lpCmdLine:
- * @param nShowCmd:
- * @return 프로그램 안전 종료 체크 (0이면 안전 아니면 비정상적인 종료)
  */
-int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
-	LPSTR lpCmdLine, int nShowCmd)
+int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd)
 {
 	// 윈도우 클래스 지정
 	WCHAR WindowClass[] = L"JungleWindowClass";
@@ -651,7 +631,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 	UINT numVerticesCube = sizeof(cube_vertices) / sizeof(FVertexSimple);
 	UINT numVerticesSphere = sizeof(sphere_vertices) / sizeof(FVertexSimple);
 
-	// 구 크기 조절
+	// 구 크기 조절 (주어진 구의 radius가 1.f라서 NDC 영억 꽉 채움 -> 크기 1/10 감소
 	float scaleMod = 0.1f;
 
 	for (UINT i = 0; i < numVerticesSphere; ++i)
@@ -668,26 +648,16 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 
 	// 도형의 움직임 정도를 담을 offset 변수.
 	FVector offset(0.f);
+
 	// 도형의 속도를 담을 변수
 	FVector velocity(0.f);
 
 	bool bIsExit = false;
 
 	// 각종 생성하는 코드를 여기에 추가한다.
-	// Main Loop(Quit Message가 들어오기 전가지 아래 Loop를 무한히 실행한다)
-
-	// 어떤 도형을 렌더링하는지 나타내는 열거형
-	enum ETypePrimitive
-	{
-		EPT_Triangle,
-		EPT_Cube,
-		EPT_Sphere,
-		EPT_MAX
-	};
-
 	ETypePrimitive typePrimitive = EPT_Sphere;
 
-	//NDC
+	//NDC 경계 영역
 	const float leftBorder = -1.f;
 	const float rightBorder = 1.f;
 	const float topBorder = 1.f;
@@ -700,27 +670,25 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 	// 핀볼에 임의의속도를 부여
 	//  0.001f 를 조절해공의 초기 속도 조절
 	float ballSpeed = 0.0005f;
-	float prevSpeed = 0.0005f;
+
 	velocity.x = ((float)(rand() % 100 - 50)) * ballSpeed;
 	velocity.y = ((float)(rand() % 100 - 50)) * ballSpeed;
 
-	// FPS 제한을 위한 설정
+	// FPS 제한을 위한 설정 (60FPS)
 	const int targetFPS = 60;
-	const double targetFrameTime =
-		1000.0 / targetFPS;  // 한 프레임의 목표 시간(밀리초 단위)
+	const double targetFrameTime = 1000.0 / targetFPS;  // 한 프레임의 목표 시간(밀리초 단위)
 
 	// 고성능 타이머 초기화
 	LARGE_INTEGER frequency;
 	QueryPerformanceFrequency(&frequency);
 
+	// FPS 체크를 위한 시작/종료시간
 	LARGE_INTEGER startTime, endTime;
+
+	// 경과시간(End - Start)
 	double elapsedTime = 0.0;
-	int frameCount =
-		0;  // 1초(1000ms)동안 프레임이 몇번 갱신됐는지 count 하는 변수
-	double frameRate =
-		0.0;  // elapsedTime을 계속해서 받는 함수로, 누적합이 몇인지 체크
-	int UICount = 1;
-	int prevCount = 60;
+
+	// Main Loop(Quit Message가 들어오기 전가지 아래 Loop를 무한히 실행한다)
 	while (bIsExit == false)
 	{
 		// 루프 시간 기록
@@ -864,8 +832,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 			Sleep(0);
 
 			QueryPerformanceCounter(&endTime);
-			elapsedTime = (endTime.QuadPart - startTime.QuadPart) * 1000.0 /
-			frequency.QuadPart;
+			elapsedTime = (endTime.QuadPart - startTime.QuadPart) * 1000.0 / frequency.QuadPart;
 		} while (elapsedTime < targetFrameTime);
 	}
 
