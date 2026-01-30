@@ -222,7 +222,7 @@ public:
 			nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr,
 			D3D11_CREATE_DEVICE_BGRA_SUPPORT | D3D11_CREATE_DEVICE_DEBUG,
 			featurelevels, ARRAYSIZE(featurelevels), D3D11_SDK_VERSION,
-			&swapChainDesc, &SwapChain, &Device, nullptr, &DeviceContext);
+			&swapChainDesc, OUT &SwapChain, OUT &Device, nullptr, OUT &DeviceContext);
 
 		// 생성된 스왑 체인의 정보 가져오기
 		SwapChain->GetDesc(&swapChainDesc);
@@ -266,7 +266,7 @@ public:
 	{
 		// 스왑 체인으로부터 백 버퍼 텍스쳐 가져오기
 		SwapChain->GetBuffer(0, __uuidof(ID3D11Texture2D),
-			(void**)&FrameBuffer);
+			OUT (void**)&FrameBuffer);
 
 		// 렌더 타겟 뷰 설정
 		D3D11_RENDER_TARGET_VIEW_DESC frameBufferRTVDesc = {};
@@ -276,7 +276,7 @@ public:
 			D3D11_RTV_DIMENSION_TEXTURE2D;  // 2D 텍스처
 
 		Device->CreateRenderTargetView(FrameBuffer, &frameBufferRTVDesc,
-			&FrameBufferRTV);
+			OUT &FrameBufferRTV);
 	}
 	// 프레임 버퍼 해제하는 함수
 	void ReleaseFrameBuffer()
@@ -301,7 +301,7 @@ public:
 		rasterizerdesc.FillMode = D3D11_FILL_SOLID;  // 채우기 모드
 		rasterizerdesc.CullMode = D3D11_CULL_BACK;   // 백 페이스 컬링
 
-		Device->CreateRasterizerState(&rasterizerdesc, &RasterizerState);
+		Device->CreateRasterizerState(&rasterizerdesc, OUT &RasterizerState);
 	}
 
 	// 래스터라이저 상태를 해제하는 변수
@@ -333,7 +333,7 @@ public:
 	}
 
 	/******************************************
-	 *          Shader Section
+	 *     vertex, pixel Shader Section
 	 ******************************************/
 
 public:
@@ -351,16 +351,14 @@ public:
 			D3DCompileFromFile(L"ShaderW0.hlsl", nullptr, nullptr, "mainVS",
 				"vs_5_0", 0, 0, &vertexShaderCSO, nullptr);
 
-		Device->CreateVertexShader(vertexShaderCSO->GetBufferPointer(),
-			vertexShaderCSO->GetBufferSize(), nullptr,
-			&SimpleVertexShader);
+		Device->CreateVertexShader(vertexShaderCSO->GetBufferPointer(), vertexShaderCSO->GetBufferSize(), nullptr,
+			OUT &SimpleVertexShader);
 
 		D3DCompileFromFile(L"ShaderW0.hlsl", nullptr, nullptr, "mainPS",
 			"ps_5_0", 0, 0, &pixelShaderCSO, nullptr);
 
-		Device->CreatePixelShader(pixelShaderCSO->GetBufferPointer(),
-			pixelShaderCSO->GetBufferSize(), nullptr,
-			&SimplePixelShader);
+		Device->CreatePixelShader(pixelShaderCSO->GetBufferPointer(), pixelShaderCSO->GetBufferSize(), nullptr,
+			OUT &SimplePixelShader);
 
 		D3D11_INPUT_ELEMENT_DESC layout[] = {
 			{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0,
@@ -371,9 +369,11 @@ public:
 
 		Device->CreateInputLayout(
 			layout, ARRAYSIZE(layout), vertexShaderCSO->GetBufferPointer(),
-			vertexShaderCSO->GetBufferSize(), &SimpleInputLayout);
+			vertexShaderCSO->GetBufferSize(), OUT &SimpleInputLayout);
 
 		Stride = sizeof(FVertexSimple);
+
+		// 사용한 CSO 해제
 		vertexShaderCSO->Release();
 		pixelShaderCSO->Release();
 	}
@@ -406,6 +406,7 @@ public:
 	{
 		DeviceContext->ClearRenderTargetView(FrameBufferRTV, ClearColor);
 
+		// TriangleList 사용(이미 sphere이 Triangle list 형식으로 하드코딩됨)
 		DeviceContext->IASetPrimitiveTopology(
 			D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
@@ -452,7 +453,7 @@ public:
 
 		ID3D11Buffer* vertexBuffer;
 		Device->CreateBuffer(&vertexbufferdesc, &vertexbufferSRD,
-			&vertexBuffer);
+			OUT &vertexBuffer);
 
 		return vertexBuffer;
 	}
@@ -481,7 +482,7 @@ public:
 		constantbufferdesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
 		constantbufferdesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
 
-		Device->CreateBuffer(&constantbufferdesc, nullptr, &ConstantBuffer);
+		Device->CreateBuffer(&constantbufferdesc, nullptr, OUT &ConstantBuffer);
 	}
 
 	void ReleaseConstantBuffer()
@@ -607,6 +608,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 		sphere_vertices[i].z *= scaleMod;
 	}
 
+	//Vertex Buffer 선언(triangle, cube, sphere)
 	ID3D11Buffer* vertexBufferTriangle = renderer.CreateVertexBuffer(triangle_vertices, sizeof(triangle_vertices));
 	ID3D11Buffer* vertexBufferCube = renderer.CreateVertexBuffer(cube_vertices, sizeof(cube_vertices));
 	ID3D11Buffer* vertexBufferSphere = renderer.CreateVertexBuffer(sphere_vertices, sizeof(sphere_vertices));
@@ -632,6 +634,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 
 	ETypePrimitive typePrimitive = EPT_Sphere;
 
+	//NDC
 	const float leftBorder = -1.f;
 	const float rightBorder = 1.f;
 	const float topBorder = 1.f;
@@ -760,7 +763,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 		renderer.PrepareShader();
 		renderer.UpdateConstant(offset);
 
-		// 생성한 버텍스 버퍼를 넘겨 실질적인 렌더링 요청
+		// 생성한 버텍스 버퍼를 넘겨 실질적인 렌더링 요청(Draw 요청)
 		switch (typePrimitive)
 		{
 		case EPT_Triangle:
@@ -790,7 +793,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 		ImGui::Checkbox("PinBall Movement", &bPinballMovement);
 		ImGui::Text("Speed: (%f, %f, %f)", velocity.x, velocity.y, velocity.z);
 
-		ImGui::Text("Avg %.3f ms/frame | %.1f FPS", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+		ImGui::Text("%.3f ms/Frame \n%.1f FPS", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
 
 		//**********************IMGUI section End**********************
 		ImGui::End();
