@@ -6,12 +6,29 @@
 
 #include <d3d11.h>
 #include <d3dcompiler.h>
+#include <crtdbg.h> // TODO eric1306: 지워야함.
 
 #include "ImGui/imgui.h"
 #include "ImGui/imgui_impl_dx11.h"
 #include "ImGui/imgui_impl_win32.h"
 #include "ImGui/imgui_internal.h"
 
+
+//forward declarations
+class UPrimitive;
+class UBall;
+class URenderer;
+struct FVector3;
+struct FVertexSimple;
+
+// UBall 객체를 보관할 배열 -> 많은 함수에서 접근하기 때문에 전역 변수로 선언.
+UPrimitive** PrimitiveList;
+
+// 중력 적용 여부 체크용 bool 변수
+bool bApplyGravity = true;
+
+extern LRESULT ImGui_ImplWin32_WndProcHandler(HWND hwnd, UINT msg,
+	WPARAM wParam, LPARAM lParam);
 
 // 어떤 도형을 렌더링하는지 나타내는 열거형
 enum ETypePrimitive
@@ -29,6 +46,7 @@ struct FVertexSimple
 	float r, g, b, a;  // color
 };
 
+// 3차원 Vector 구조체
 struct FVector3
 {
 	float x, y, z;
@@ -87,6 +105,11 @@ struct FVector3
 		return { x * rhs, y * rhs, z * rhs };
 	}
 
+	friend FVector3 operator*(const float lhs, const FVector3& rhs)
+	{
+		return rhs * lhs;
+	}
+
 	FVector3& operator*=(const float rhs)
 	{
 		x *= rhs;
@@ -129,19 +152,88 @@ struct FVector3
 		}
 		return *this;
 	}
-
-	static const FVector3 UnitX;
-	static const FVector3 UnitY;
-	static const FVector3 UnitZ;
-	static const FVector3 One;
-	static const FVector3 Zero;
 };
 
-const FVector3 FVector3::UnitX = { 1.f, 0.f, 0.f };
-const FVector3 FVector3::UnitY = { 0.f, 1.f, 0.f };
-const FVector3 FVector3::UnitZ = { 0.f, 0.f, 1.f };
-const FVector3 FVector3::Zero = { 0.f, 0.f, 0.f };
-const FVector3 FVector3::One = { 1.f, 1.f, 1.f };
+class UPrimitive
+{
+public:
+	UPrimitive() {}
+
+	virtual ~UPrimitive() {} //안전한 자식 소멸자 호출을 위해 부모 소멸자를 가상함수로 선언
+};
+
+class UBall : public UPrimitive
+{
+public:
+	FVector3 Location;	// 공의 위치
+	FVector3 Velocity;	// 공의 속도
+	float Radius;		// 공의 크기
+	float Mass;			// 공의 질량
+
+	static int TotalNumBalls;	// 생성된 총 UBall의 개수를 보관하는 변수
+
+	//UBall의 총 개수를 측정하는 기능을 UBall의 생성자와 소멸자를 통해 구현 하세요.
+	UBall() :
+		Location{ //위치의 범위는 -0.8 ~ 0.8로 설정 (반지름 크기 고려)
+			(static_cast<float>(rand()) / (static_cast<float>(RAND_MAX))) * 1.6f - 0.8f,
+			(static_cast<float>(rand()) / (static_cast<float>(RAND_MAX))) * 1.6f - 0.8f,
+			0.f
+	}
+		, Velocity{ //속도는 -0.2 ~ 0.2로 설정
+			(static_cast<float>(rand()) / (static_cast<float>(RAND_MAX))) * 0.4f - 0.2f,
+			(static_cast<float>(rand()) / (static_cast<float>(RAND_MAX))) * 0.4f - 0.2f,
+			0.f
+		}
+		, Radius{ 0.05f + (static_cast<float>(rand()) / (static_cast<float>(RAND_MAX))) * 0.15f }	//반지름의 범위는 0.05~0.2로 설정
+		, Mass{ Radius } //질량이 크기에 비례하게 설정
+	{
+		++TotalNumBalls; // 생성자 호출시 카운트 1 증가
+	}
+	virtual ~UBall() override
+	{
+		--TotalNumBalls;  // 소멸자 호출 시 카운트 1 감소
+	}
+
+	//공을 움직이게 하는 함수
+	void MoveBall()
+	{
+		constexpr float FixedUpdateTime = 1.f / 60.f; //물리 연산이기 때문에 규칙적인 호출인 Fixed Update 사용(일정 간격)
+
+		if (bApplyGravity) //중력 적용 ( 중력 계수 1.0f)
+		{
+			Velocity.y -= 1.f * FixedUpdateTime;
+		}
+
+		Location += Velocity * FixedUpdateTime;
+
+
+		//벽과 물리 운동 + 위치 보정
+		if (Location.x > 1.f - Radius)
+		{
+			Velocity.x *= -1;
+			Location.x = 1.f - Radius;
+		}
+		if (Location.x < -1.f + Radius)
+		{
+			Velocity.x *= -1;
+			Location.x = -1.f + Radius;
+		}
+		if (Location.y > 1.f - Radius)
+		{
+			Velocity.y *= -1;
+			Location.y = 1.f - Radius;
+		}
+		if (Location.y < -1.f + Radius)
+		{
+			Velocity.y *= -1;
+			Location.y = -1.f + Radius;
+		}
+	}
+};
+
+int UBall::TotalNumBalls = 0; //공은 최소 1개 (0으로 설정해야 생성자 호출되면서 1 상승)
+
+
 #pragma region Primitive Vertex Data
 /**********************************************
 *              Primitive Vertex Data
@@ -514,8 +606,8 @@ public:
 	 ******************************************/
 	struct FConstants
 	{
-		FVector3 Offset;
-		float Pad;
+		FVector3 Offset;	// 공 위치 오프셋
+		float Scale;		// 공의 크기
 	};
 
 	void CreateConstantBuffer()
@@ -541,7 +633,7 @@ public:
 	}
 
 	// 상수 버퍼 갱신 함수
-	void UpdateConstant(FVector3 Offset)
+	void UpdateConstant(FVector3 Offset, float Scale)
 	{
 		if (ConstantBuffer)
 		{
@@ -552,15 +644,13 @@ public:
 			FConstants* constants = (FConstants*)constantBufferMSR.pData;
 			{
 				constants->Offset = Offset;
+				constants->Scale = Scale;
 			}
 			DeviceContext->Unmap(ConstantBuffer, 0);
 		}
 	}
 };
 #pragma endregion
-
-extern LRESULT ImGui_ImplWin32_WndProcHandler(HWND hwnd, UINT msg,
-	WPARAM wParam, LPARAM lParam);
 
 /*
  * 각종 메세지를 처리할 함수
@@ -582,6 +672,109 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		return DefWindowProc(hWnd, message, wParam, lParam);
 	}
 	return 0;
+}
+
+//TODO eric1306: vector처럼 capacity 개념 도입? 너무 삽입삭제가 빈번함.
+// 
+// UBall::TotalNumBalls > LastNumberOfBalls
+void RemoveBall(int diff)
+{
+	if (UBall::TotalNumBalls - diff <= 0) return; //만약 공의 개수가 0 이하라면 공 삭제 불가능.
+
+	int CacheTotalNumBalls;
+
+	for (int i = 0; i < diff; ++i) // diff개 공을 해제해야함.
+	{
+		CacheTotalNumBalls = UBall::TotalNumBalls; // 현재 배열의 길이 캐싱
+		//삭제할 공 index 선정
+		int idx = rand() % (UBall::TotalNumBalls); // 현재 배열에서 삭제할 원소 하나 선택.
+		
+		//해당 원소 할당 해제 (가상함수로 소멸자 선언했기 때문에 적절한 소멸자가 호출됨)
+		delete PrimitiveList[idx]; //인스턴스 즉시 소멸
+
+		UPrimitive** NewPrimitiveList = new UPrimitive * [UBall::TotalNumBalls]; //감소된 갯수만큼의 동적 배열 할당.
+
+		//copy 작업 수행
+		int NewIdx = 0;
+		for (int j = 0; j < CacheTotalNumBalls; ++j)
+		{
+			if (j == idx) continue;
+			NewPrimitiveList[NewIdx] = PrimitiveList[j];
+			++NewIdx;
+		}
+		delete[] PrimitiveList;
+
+		PrimitiveList = NewPrimitiveList;
+	}
+}
+
+// LastNumberOfBalls > UBall::TotalNumBalls
+void IncreaseBall(int diff)
+{
+	//기존 배열에 diff개 만큼의 공을 추가로 할당해야함.
+	if (diff <= 0) return;
+
+	UPrimitive** NewPrimitiveList = new UPrimitive*[UBall::TotalNumBalls + diff];
+
+	int PrevNumberOfBalls = UBall::TotalNumBalls; //TotalNumBalls 값 복사
+
+	for (int i = 0; i < PrevNumberOfBalls; ++i)
+	{
+		NewPrimitiveList[i] = PrimitiveList[i];
+	}
+
+	for (int i = PrevNumberOfBalls; i < PrevNumberOfBalls + diff; ++i)
+	{
+		NewPrimitiveList[i] = new UBall();
+	}
+
+	delete[] PrimitiveList;
+
+	PrimitiveList = NewPrimitiveList;
+}
+
+// 두 공의 충돌을 및 탄성충돌을 계산하는 함수
+void CheckElasticCollision()
+{
+	//두 공을 각각 보면서 충돌이 발생했는지 체크
+	for (int i = 0; i < UBall::TotalNumBalls; ++i) for (int j = i + 1; j < UBall::TotalNumBalls; ++j)
+	{
+		UBall* Ball1 = static_cast<UBall*>(PrimitiveList[i]);
+		UBall* Ball2 = static_cast<UBall*>(PrimitiveList[j]);
+
+		float DistanceSquare = (Ball1->Location - Ball2->Location).LengthSquare();
+		if (DistanceSquare > (Ball1->Radius + Ball2->Radius) * (Ball1->Radius + Ball2->Radius)) //두 구의 반지름의 합 보다 거리가 크다면 두 원은 떨어져 있는 것이다.
+		{
+			continue; //충돌하지 않음.
+		}
+		
+		// Ball2->Ball1 단위 벡터
+		FVector3 Normal = (Ball1->Location - Ball2->Location).Normalize(); 
+
+		//겹침 보정
+		float Distance = sqrtf(DistanceSquare);
+		float Ovelap = ((Ball1->Radius + Ball2->Radius) - Distance) / 2.f;
+
+		//각 공을 반대방향으로 밀치기
+		Ball1->Location += Normal * Ovelap;
+		Ball2->Location -= Normal * Ovelap;
+
+		// 1차원 탄성 충돌 구현을 위한 충돌 방향 단위벡터 투영
+		float v1 = FVector3::DotProduct(Ball1->Velocity, Normal);
+		float v2 = FVector3::DotProduct(Ball2->Velocity, Normal);
+
+		//각 공의 질량
+		float m1 = Ball1->Mass;
+		float m2 = Ball2->Mass;
+
+		// 새로운 속도
+		float NewVelocity1 = ((m1 - m2) * v1 + 2 * m2 * v2) / (m1 + m2);
+		float NewVelocity2 = ((m2 - m1) * v2 + 2 * m1 * v1) / (m1 + m2);
+
+		//법선 방향의 속도만 수정(법선 방향)
+		Ball1->Velocity += Normal * (NewVelocity1 - v1);
+		Ball2->Velocity += Normal * (NewVelocity2 - v2);
+	}
 }
 
 /*
@@ -628,52 +821,10 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	ImGui_ImplDX11_Init(renderer.Device, renderer.DeviceContext);
 
 	// Renderer와 Shader 생성 이후에 Vertex Buffer 생성
-	UINT numVerticesTriangle = sizeof(triangle_vertices) / sizeof(FVertexSimple);
-	UINT numVerticesCube = sizeof(cube_vertices) / sizeof(FVertexSimple);
 	UINT numVerticesSphere = sizeof(sphere_vertices) / sizeof(FVertexSimple);
 
-	// 구 크기 조절 (주어진 구의 radius가 1.f라서 NDC 영억 꽉 채움 -> 크기 1/10 감소
-	float scaleMod = 0.1f;
-
-	for (UINT i = 0; i < numVerticesSphere; ++i)
-	{
-		sphere_vertices[i].x *= scaleMod;
-		sphere_vertices[i].y *= scaleMod;
-		sphere_vertices[i].z *= scaleMod;
-	}
-
-	//Vertex Buffer 선언(triangle, cube, sphere)
-	ID3D11Buffer* vertexBufferTriangle = renderer.CreateVertexBuffer(triangle_vertices, sizeof(triangle_vertices));
-	ID3D11Buffer* vertexBufferCube = renderer.CreateVertexBuffer(cube_vertices, sizeof(cube_vertices));
+	//Vertex Buffer 선언(sphere)
 	ID3D11Buffer* vertexBufferSphere = renderer.CreateVertexBuffer(sphere_vertices, sizeof(sphere_vertices));
-
-	// 도형의 움직임 정도를 담을 offset 변수.
-	FVector3 offset(0.f);
-
-	// 도형의 속도를 담을 변수
-	FVector3 velocity(0.f);
-
-	bool bIsExit = false;
-
-	// 각종 생성하는 코드를 여기에 추가한다.
-	ETypePrimitive typePrimitive = EPT_Sphere;
-
-	//NDC 경계 영역
-	const float leftBorder = -1.f;
-	const float rightBorder = 1.f;
-	const float topBorder = 1.f;
-	const float bottomBorder = -1.f;
-	const float sphereRadius = 1.f;
-
-	bool bBoundBallToScreen = true;
-	// 핀볼 움직임 여부를 나타내는 bPinballMovement 정의
-	bool bPinballMovement = true;
-	// 핀볼에 임의의속도를 부여
-	//  0.001f 를 조절해공의 초기 속도 조절
-	float ballSpeed = 0.0005f;
-
-	velocity.x = ((float)(rand() % 100 - 50)) * ballSpeed;
-	velocity.y = ((float)(rand() % 100 - 50)) * ballSpeed;
 
 	// FPS 제한을 위한 설정 (60FPS)
 	const int targetFPS = 60;
@@ -689,6 +840,20 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	// 경과시간(End - Start)
 	double elapsedTime = 0.0;
 
+	//초기 1개의 구체 생성
+	UBall* initBall = new UBall();
+
+	// 생성된 공을 PrimitiveList에서 가리키게 지정.
+	PrimitiveList = new UPrimitive * [UBall::TotalNumBalls];	
+	PrimitiveList[0] = initBall;
+	
+	//더이상 사용하지않는 initBall 포인터 변수 처리
+	initBall = nullptr;
+
+	//이전 프레임의 공의 개수를 보관하는 변수
+	int LastNumberOfBalls = UBall::TotalNumBalls;
+
+	bool bIsExit = false;
 	// Main Loop(Quit Message가 들어오기 전가지 아래 Loop를 무한히 실행한다)
 	while (bIsExit == false)
 	{
@@ -709,73 +874,27 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 				bIsExit = true;
 				break;
 			}
-			else if (msg.message == WM_KEYDOWN)  // 키보드 눌렀을 때
-			{
-				if (msg.wParam == VK_LEFT)
-				{
-					offset.x -= 0.01f;
-				}
-				if (msg.wParam == VK_RIGHT)
-				{
-					offset.x += 0.01f;
-				}
-				if (msg.wParam == VK_UP)
-				{
-					offset.y += 0.01f;
-				}
-				if (msg.wParam == VK_DOWN)
-				{
-					offset.y -= 0.01f;
-				}
-			}
-			// 키보드 처리 직후에 화면 밖을 벗어났다면 화면 안쪽으로 위치시킨다
-			// 화면을 벗어나지 않게 처리
-			if (bBoundBallToScreen)
-			{
-				float renderRadius = sphereRadius * scaleMod;
-				if (offset.x < leftBorder + renderRadius)
-				{
-					offset.x = leftBorder + renderRadius;
-				}
-				if (offset.x > rightBorder - renderRadius)
-				{
-					offset.x = rightBorder - renderRadius;
-				}
-				if (offset.y > topBorder - renderRadius)
-				{
-					offset.y = topBorder - renderRadius;
-				}
-				if (offset.y < bottomBorder + renderRadius)
-				{
-					offset.y = bottomBorder + renderRadius;
-				}
-			}
 		}
-		// 핀볼 움직임이 켜져있다면
-		if (bPinballMovement)
-		{
-			// 속도를 공 위치에 더해 공을 실질적으로 움직임
-			offset += velocity;
 
-			// 벽과 충돌 여부를 체크하고 충돌 시 속도에 음수를 곱해 방향을 바꿈
-			float renderRadius = sphereRadius * scaleMod;
-			if (offset.x < leftBorder + renderRadius)
-			{
-				velocity.x *= -1;
-			}
-			if (offset.x > rightBorder - renderRadius)
-			{
-				velocity.x *= -1;
-			}
-			if (offset.y > topBorder - renderRadius)
-			{
-				velocity.y *= -1;
-			}
-			if (offset.y < bottomBorder + renderRadius)
-			{
-				velocity.y *= -1;
-			}
+		//UBall 클래스의 생성자와 소멸자에서 TotalNumBalls 관리. 따로 신경X
+		if (LastNumberOfBalls < UBall::TotalNumBalls) //공의 개수가 줄어들음.
+		{
+			RemoveBall(UBall::TotalNumBalls - LastNumberOfBalls);
 		}
+		else if (LastNumberOfBalls > UBall::TotalNumBalls) //공의 개수가 증가함.
+		{
+			IncreaseBall(LastNumberOfBalls - UBall::TotalNumBalls);
+		}
+
+		// 공 움직임 적용
+		for (int i = 0; i < UBall::TotalNumBalls; ++i)
+		{
+			UBall* Ball = static_cast<UBall*>(PrimitiveList[i]);
+			Ball->MoveBall();
+		}
+
+		//충돌 검사 및 탄성 충돌
+		CheckElasticCollision();
 
 		///////////////////////////////////////
 		// 매번 실행되는 코드를 여기에 추가합니다
@@ -783,21 +902,15 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		// 준비 작업
 		renderer.Prepare();
 		renderer.PrepareShader();
-		renderer.UpdateConstant(offset);
 
-		// 생성한 버텍스 버퍼를 넘겨 실질적인 렌더링 요청(Draw 요청)
-		switch (typePrimitive)
+		for (int i = 0; i < UBall::TotalNumBalls; ++i)
 		{
-		case EPT_Triangle:
-			renderer.RenderPrimitive(vertexBufferTriangle,
-				numVerticesTriangle);
-			break;
-		case EPT_Cube:
-			renderer.RenderPrimitive(vertexBufferCube, numVerticesCube);
-			break;
-		case EPT_Sphere:
+			// 상수 버퍼 갱신
+			UBall* Ball = static_cast<UBall*>(PrimitiveList[i]);
+			renderer.UpdateConstant(Ball->Location, Ball->Radius);
+
+			// 생성한 버텍스 버퍼를 넘겨 실질적인 렌더링 요청(Draw 요청)
 			renderer.RenderPrimitive(vertexBufferSphere, numVerticesSphere);
-			break;
 		}
 
 		ImGui_ImplDX11_NewFrame();
@@ -810,15 +923,14 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		//**********************IMGUI section Start**********************
 		ImGui::Text("Hello Jungle World!");
 
-		ImGui::Checkbox("Bound Ball To Screen", &bBoundBallToScreen);
-		// 핀볼 움직임 켜고 끌 수 있는 UI와 연결
-		ImGui::Checkbox("PinBall Movement", &bPinballMovement);
-		ImGui::Text("Speed: (%f, %f, %f)", velocity.x, velocity.y, velocity.z);
-
-		ImGui::Text("%.3f ms/Frame \n%.1f FPS", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+		ImGui::Checkbox("Gravity", &bApplyGravity);
+		ImGui::InputInt("Number of Balls", &LastNumberOfBalls);
+		LastNumberOfBalls = max(LastNumberOfBalls, 1); //공의 개수가 1 이하로 떨어지지 않게 조절
 
 		//**********************IMGUI section End**********************
 		ImGui::End();
+
+		/* 이 부분에서 TotalNumBalls 개수를 체크해서 객체 할당 또는 해제 진행*/
 
 		ImGui::Render();
 
@@ -845,8 +957,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	// 소멸하는 코드를 여기에 추가합니다
 
 	// renderer소멸 전에 vertex buffer소멸 처리
-	renderer.ReleaseVertexBuffer(vertexBufferTriangle);
-	renderer.ReleaseVertexBuffer(vertexBufferCube);
 	renderer.ReleaseVertexBuffer(vertexBufferSphere);
 
 	// 쉐이더 소멸 직전 상수 버퍼 소멸 함수 호출
@@ -857,6 +967,19 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 	// D3D11 소멸시키는 함수를 호출
 	renderer.Release();
+	
+
+	// 남은 Ball 객체 소멸
+	// delete를 할 때 마다 UBall::TotalNumBalls 값이 변하기 때문에 값을 복사해서 사용
+	int TotalBallCnt = UBall::TotalNumBalls;
+	for (int i = 0; i < TotalBallCnt; i++)
+	{
+		delete PrimitiveList[i];
+	}
+	delete[] PrimitiveList;
+
+	// 메모리 누수 검사용 TODO eric1306: 지워야함.
+	_CrtDumpMemoryLeaks();
 
 	return 0;
 }

@@ -1,7 +1,7 @@
 cbuffer constants : register(b0)
 {
     float3 Offset;
-    float Pad;
+    float Scale;
 }
 
 struct VS_INPUT
@@ -23,8 +23,13 @@ PS_INPUT mainVS(VS_INPUT input)
     // Pass the position directly to the pixel shader (no transformation)
     //output.position = input.position;
     
+    // 상수 버퍼를 통해 넘겨받은 Scale값을 곱해서 정점 위치 조절
+    input.position.x *= Scale;
+    input.position.y *= Scale;
+    input.position.z *= Scale;
+    
     //상수 버퍼를 통해 넘겨받은 Offset을 더해서 버텍스를 이동시켜 픽셀쉐이더로 옮김
-    output.position = float4(Offset, 0) + input.position;
+    output.position = input.position + float4(Offset, 0.f);
     
     // Pass the color to the pixel shader
     output.color = input.color;
