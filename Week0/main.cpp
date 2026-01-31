@@ -29,16 +29,17 @@ struct FVertexSimple
 	float r, g, b, a;  // color
 };
 
-struct FVector
+struct FVector3
 {
 	float x, y, z;
-	FVector(float _x = 0.f, float _y = 0.f, float _z = 0.f) : x(_x), y(_y), z(_z) {}
-	static float DotProduct(const FVector& lhs, const FVector& rhs)
+	FVector3(float _x = 0.f, float _y = 0.f, float _z = 0.f) : x(_x), y(_y), z(_z) {}
+
+	static float DotProduct(const FVector3& lhs, const FVector3& rhs)
 	{
 		return (lhs.x * rhs.x + lhs.y * rhs.y + lhs.z * rhs.z);
 	}
 
-	static FVector CrossProduct(const FVector& lhs, const FVector& rhs)
+	static FVector3 CrossProduct(const FVector3& lhs, const FVector3& rhs)
 	{
 		return {
 			lhs.y * rhs.z - lhs.z * rhs.y,
@@ -47,33 +48,33 @@ struct FVector
 		};
 	}
 
-	float Dot(const FVector& rhs)
+	float Dot(const FVector3& rhs)
 	{
 		return DotProduct(*this, rhs);
 	}
 
-	FVector Cross(const FVector& rhs)
+	FVector3 Cross(const FVector3& rhs)
 	{
 		return CrossProduct(*this, rhs);
 	}
 
-	FVector operator+(const FVector& rhs) const
+	FVector3 operator+(const FVector3& rhs) const
 	{
 		return { x + rhs.x, y + rhs.y, z + rhs.z };
 	}
-	FVector& operator+=(const FVector& rhs)
+	FVector3& operator+=(const FVector3& rhs)
 	{
 		x += rhs.x;
 		y += rhs.y;
 		z += rhs.z;
 		return *this;
 	}
-	FVector operator-(const FVector& rhs) const
+	FVector3 operator-(const FVector3& rhs) const
 	{
 		return { x - rhs.x, y - rhs.y, z - rhs.z };
 	}
 
-	FVector& operator-=(const FVector& rhs)
+	FVector3& operator-=(const FVector3& rhs)
 	{
 		x -= rhs.x;
 		y -= rhs.y;
@@ -81,12 +82,12 @@ struct FVector
 		return *this;
 	}
 
-	FVector operator*(const float rhs) const
+	FVector3 operator*(const float rhs) const
 	{
 		return { x * rhs, y * rhs, z * rhs };
 	}
 
-	FVector& operator*=(const float rhs)
+	FVector3& operator*=(const float rhs)
 	{
 		x *= rhs;
 		y *= rhs;
@@ -94,12 +95,12 @@ struct FVector
 		return *this;
 	}
 
-	FVector operator/(const float rhs) const
+	FVector3 operator/(const float rhs) const
 	{
 		return { x / rhs, y / rhs, z / rhs };
 	}
 
-	FVector& operator/=(const float rhs)
+	FVector3& operator/=(const float rhs)
 	{
 		x /= rhs;
 		y /= rhs;
@@ -117,7 +118,7 @@ struct FVector
 		return sqrtf(LengthSquare());
 	}
 
-	FVector& Normalize()
+	FVector3& Normalize()
 	{
 		float Len = Length();
 		if (Len > 0.0f)
@@ -129,18 +130,18 @@ struct FVector
 		return *this;
 	}
 
-	static const FVector UnitX;
-	static const FVector UnitY;
-	static const FVector UnitZ;
-	static const FVector One;
-	static const FVector Zero;
+	static const FVector3 UnitX;
+	static const FVector3 UnitY;
+	static const FVector3 UnitZ;
+	static const FVector3 One;
+	static const FVector3 Zero;
 };
 
-const FVector FVector::UnitX = { 1.f, 0.f, 0.f };
-const FVector FVector::UnitY = { 0.f, 1.f, 0.f };
-const FVector FVector::UnitZ = { 0.f, 0.f, 1.f };
-const FVector FVector::Zero = { 0.f, 0.f, 0.f };
-const FVector FVector::One = { 1.f, 1.f, 1.f };
+const FVector3 FVector3::UnitX = { 1.f, 0.f, 0.f };
+const FVector3 FVector3::UnitY = { 0.f, 1.f, 0.f };
+const FVector3 FVector3::UnitZ = { 0.f, 0.f, 1.f };
+const FVector3 FVector3::Zero = { 0.f, 0.f, 0.f };
+const FVector3 FVector3::One = { 1.f, 1.f, 1.f };
 #pragma region Primitive Vertex Data
 /**********************************************
 *              Primitive Vertex Data
@@ -513,7 +514,7 @@ public:
 	 ******************************************/
 	struct FConstants
 	{
-		FVector Offset;
+		FVector3 Offset;
 		float Pad;
 	};
 
@@ -540,7 +541,7 @@ public:
 	}
 
 	// 상수 버퍼 갱신 함수
-	void UpdateConstant(FVector Offset)
+	void UpdateConstant(FVector3 Offset)
 	{
 		if (ConstantBuffer)
 		{
@@ -647,10 +648,10 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	ID3D11Buffer* vertexBufferSphere = renderer.CreateVertexBuffer(sphere_vertices, sizeof(sphere_vertices));
 
 	// 도형의 움직임 정도를 담을 offset 변수.
-	FVector offset(0.f);
+	FVector3 offset(0.f);
 
 	// 도형의 속도를 담을 변수
-	FVector velocity(0.f);
+	FVector3 velocity(0.f);
 
 	bool bIsExit = false;
 
