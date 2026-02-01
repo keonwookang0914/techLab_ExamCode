@@ -1,14 +1,9 @@
 ﻿#include <windows.h>
-// 먼저 D3D11 관련한 라이브러리와 헤더를 Main 소스 파일에 추가합니다.
 
-// D3D 사용에 필요한 라이브러리들을 링크합니다.
 #pragma comment(lib, "user32")
 #pragma comment(lib, "d3d11")
 #pragma comment(lib, "d3dcompiler")
 
-#pragma warning(disable : 4819)
-
-// D3D에 사용할 헤더파일들을 포함합니다.
 #include <d3d11.h>
 #include <d3dcompiler.h>
 
@@ -17,6 +12,18 @@
 #include "ImGui/imgui_impl_win32.h"
 #include "ImGui/imgui_internal.h"
 
+
+//forward declarations
+class UPrimitive;
+class UBall;
+class URenderer;
+struct FVector3;
+struct FVertexSimple;
+
+// UBall 객체를 보관할 배열 -> 많은 함수에서 접근하기 때문에 전역 변수로 선언
+UPrimitive** PrimitiveList;
+
+
 // 정점 정의 구조체
 struct FVertexSimple
 {
@@ -24,16 +31,18 @@ struct FVertexSimple
 	float r, g, b, a;  // color
 };
 
-struct FVector
+// 3차원 Vector 구조체
+struct FVector3
 {
 	float x, y, z;
-	FVector(float _x = 0.f, float _y = 0.f, float _z = 0.f) : x(_x), y(_y), z(_z) {}
-	static float DotProduct(const FVector& lhs, const FVector& rhs)
+	FVector3(float _x = 0.f, float _y = 0.f, float _z = 0.f) : x(_x), y(_y), z(_z) {}
+
+	static float DotProduct(const FVector3& lhs, const FVector3& rhs)
 	{
 		return (lhs.x * rhs.x + lhs.y * rhs.y + lhs.z * rhs.z);
 	}
 
-	static FVector CrossProduct(const FVector& lhs, const FVector& rhs)
+	static FVector3 CrossProduct(const FVector3& lhs, const FVector3& rhs)
 	{
 		return {
 			lhs.y * rhs.z - lhs.z * rhs.y,
@@ -42,33 +51,38 @@ struct FVector
 		};
 	}
 
-	float Dot(const FVector& rhs)
+	float Dot(const FVector3& rhs)
 	{
 		return DotProduct(*this, rhs);
 	}
 
-	FVector Cross(const FVector& rhs)
+	FVector3 Cross(const FVector3& rhs)
 	{
 		return CrossProduct(*this, rhs);
 	}
 
-	FVector operator+(const FVector& rhs) const
+	FVector3 operator+(const FVector3& rhs) const
 	{
 		return { x + rhs.x, y + rhs.y, z + rhs.z };
 	}
-	FVector& operator+=(const FVector& rhs)
+	FVector3& operator+=(const FVector3& rhs)
 	{
 		x += rhs.x;
 		y += rhs.y;
 		z += rhs.z;
 		return *this;
 	}
-	FVector operator-(const FVector& rhs) const
+	FVector3 operator-(const FVector3& rhs) const
 	{
 		return { x - rhs.x, y - rhs.y, z - rhs.z };
 	}
 
-	FVector& operator-=(const FVector& rhs)
+	FVector3 operator-() const
+	{
+		return { -x, -y, -z };
+	}
+
+	FVector3& operator-=(const FVector3& rhs)
 	{
 		x -= rhs.x;
 		y -= rhs.y;
@@ -76,12 +90,17 @@ struct FVector
 		return *this;
 	}
 
-	FVector operator*(const float rhs) const
+	FVector3 operator*(const float rhs) const
 	{
 		return { x * rhs, y * rhs, z * rhs };
 	}
 
-	FVector& operator*=(const float rhs)
+	friend FVector3 operator*(const float lhs, const FVector3& rhs)
+	{
+		return rhs * lhs;
+	}
+
+	FVector3& operator*=(const float rhs)
 	{
 		x *= rhs;
 		y *= rhs;
@@ -89,12 +108,12 @@ struct FVector
 		return *this;
 	}
 
-	FVector operator/(const float rhs) const
+	FVector3 operator/(const float rhs) const
 	{
 		return { x / rhs, y / rhs, z / rhs };
 	}
 
-	FVector& operator/=(const float rhs)
+	FVector3& operator/=(const float rhs)
 	{
 		x /= rhs;
 		y /= rhs;
@@ -112,7 +131,7 @@ struct FVector
 		return sqrtf(LengthSquare());
 	}
 
-	FVector& Normalize()
+	FVector3& Normalize()
 	{
 		float Len = Length();
 		if (Len > 0.0f)
@@ -123,22 +142,127 @@ struct FVector
 		}
 		return *this;
 	}
-
-	static const FVector UnitX;
-	static const FVector UnitY;
-	static const FVector UnitZ;
-	static const FVector One;
-	static const FVector Zero;
 };
 
-const FVector FVector::UnitX = { 1.f, 0.f, 0.f };
-const FVector FVector::UnitY = { 0.f, 1.f, 0.f };
-const FVector FVector::UnitZ = { 0.f, 0.f, 1.f };
-const FVector FVector::Zero = { 0.f, 0.f, 0.f };
-const FVector FVector::One = { 1.f, 1.f, 1.f };
-#pragma region Base prmitive
+class UPrimitive
+{
+public:
+	UPrimitive() = default;
+
+	virtual ~UPrimitive() = default; //안전한 자식 소멸자 호출을 위해 부모 소멸자를 가상함수로 선언
+};
+
+class UBall : public UPrimitive
+{
+public:
+	FVector3 Location;	// 공의 위치
+	FVector3 Velocity;	// 공의 속도
+	float Radius;		// 공의 크기
+	float Mass;			// 공의 질량
+
+	static int TotalNumBalls;	// 생성된 총 UBall의 개수를 보관하는 변수
+	static bool bApplyGravity;	// 중력 적용 여부 체크용 bool 변수
+
+	UBall() :
+		Location{ //위치의 범위는 -0.5 ~ 0.5로 설정
+			(static_cast<float>(rand()) / (static_cast<float>(RAND_MAX))) * 1.0f - 0.5f,
+			(static_cast<float>(rand()) / (static_cast<float>(RAND_MAX))) * 1.0f - 0.5f,
+			0.f}
+		, Velocity{ //속도는 -0.5 ~ 0.5로 설정
+			(static_cast<float>(rand()) / (static_cast<float>(RAND_MAX))) * 1.f - 0.5f,
+			(static_cast<float>(rand()) / (static_cast<float>(RAND_MAX))) * 1.f - 0.5f,
+			0.f}
+		, Radius{ // 공의 크기는 0.1~0.2로 설정
+			(static_cast<float>(rand()) / (static_cast<float>(RAND_MAX))) * 0.1f + 0.1f }
+		, Mass{ //질량이 크기에 비례하게 설정
+			Radius 
+		}
+	{
+		++TotalNumBalls; // 생성자 호출시 카운트 1 증가
+	}
+
+	virtual ~UBall() override
+	{
+		--TotalNumBalls;  // 소멸자 호출 시 카운트 1 감소
+	}
+
+	// 벽과의 충돌 처리 + 위치 보정(위치를 지정하지 않으면 화면 밖으로 공이 밀려난다)
+	void HandleBoundaryCollision()
+	{
+		if (Location.x > 1.f - Radius)
+		{
+			Velocity.x *= -1;
+			Location.x = 1.f - Radius;
+		}
+		if (Location.x < -1.f + Radius)
+		{
+			Velocity.x *= -1;
+			Location.x = -1.f + Radius;
+		}
+		if (Location.y > 1.f - Radius)
+		{
+			Velocity.y *= -1;
+			Location.y = 1.f - Radius;
+		}
+		if (Location.y < -1.f + Radius)
+		{
+			Velocity.y *= -1;
+			Location.y = -1.f + Radius;
+		}
+	}
+
+	//공을 움직이게 하는 함수 (등가속도 또는 등속도 운동 수행)
+	void MoveAccelerate()
+	{
+		constexpr float FixedTimeStep = 1.f / 60.f; //물리 연산이기 때문에 규칙적인 호출인 Fixed Update 사용(일정 간격)
+
+		if (bApplyGravity) //중력 적용 ( 중력 계수 1.0f)
+		{
+			Velocity.y -= 1.f * FixedTimeStep;
+		}
+
+		Location += Velocity * FixedTimeStep;
+
+		HandleBoundaryCollision();
+	}
+
+	// 공을 움직이게 하는 함수(각속도 운동)
+	void MoveAngular()
+	{
+		/*
+		* 회전 중심으로부터 r만큼떨어진 물체의 속도 v와 각속도 w사이의 관계
+		* v = w x r
+		* 물체의 운동이 평면상에서 이루어지는 경우 r과 w가 수직이 되어 아래와 같이 각속도에 대해 식을 쓸 수 있다
+		* w = r x v / (abs(r) * abs(r)) 
+		* 이를 사용해 velocity를 각속도 운동으로 변환
+		*/
+
+		//중점은 FVector(0, 0, 0) 이라고 가정 -> Location을 r로 간주.
+
+		constexpr float FixedTimeStep = 1.f / 60.f; //물리 연산이기 때문에 고정 업데이트 사용
+
+		// 현재 속도값을 사용해 각속도 계산 
+		// w = r x v / (abs(r) * abs(r))
+		FVector3 AngularVelocity = FVector3::CrossProduct(Location, Velocity);
+		AngularVelocity /= Location.LengthSquare();
+
+		// 각속도를 기반으로 원운동 궤적 생성하기
+		// v = ω × r
+		Velocity = FVector3::CrossProduct(AngularVelocity, Location);
+
+		// 이를 Location에 적용
+		Location += Velocity * FixedTimeStep;
+
+		HandleBoundaryCollision();
+	}
+};
+int UBall::TotalNumBalls = 0; // 0으로 초기화(이후 생성자에서 1 증가, 소멸자에서 1 감소)
+bool UBall::bApplyGravity = true;
+
+
+#pragma region Primitive Vertex Data
 /**********************************************
-*              Basic Polygon
+*              Primitive Vertex Data
 **********************************************/
 
 //삼각형 하드코딩
@@ -210,31 +334,21 @@ FVertexSimple cube_vertices[] =
 // 렌더링 담당 클래스
 class URenderer
 {
-	/******************************************
-	 *          Shader Section
-	 ******************************************/
 public:
 	// Direct3D 장치(Device)와 장치 컨텍스트(Device Context) 및 스왑
 	// 체인(SwapChain) 관리를 위한 포인터
-	ID3D11Device* Device = nullptr;  // GPU와 통신하기 위한 Direct3D 장치
-	ID3D11DeviceContext* DeviceContext =
-		nullptr;  // GPU 명령 실행을 담당할 컨텍스트
-	IDXGISwapChain* SwapChain =
-		nullptr;  // 프레임 버퍼 교체에 사용되는 스왑 체인
+	ID3D11Device*			Device = nullptr;									// GPU와 통신하기 위한 Direct3D 장치
+	ID3D11DeviceContext*	DeviceContext = nullptr;							// GPU 명령 실행을 담당할 컨텍스트
+	IDXGISwapChain*			SwapChain = nullptr;								// 프레임 버퍼 교체에 사용되는 스왑 체인
 
 	// 렌더링에 필요한 리소스 및 상태를 관리하기 위한 변수
-	ID3D11Texture2D* FrameBuffer = nullptr;  // 화면 출력용 텍스쳐
-	ID3D11RenderTargetView* FrameBufferRTV =
-		nullptr;  // 텍스쳐를 렌더 타겟으로 사용하는 뷰
-	ID3D11RasterizerState* RasterizerState =
-		nullptr;  // 래스터라이저 상태(컬링, 채우기 모드 정의)
-	ID3D11Buffer* ConstantBuffer =
-		nullptr;  // 쉐이더에 데이터를 전달하기 위한 상수 버퍼
+	ID3D11Texture2D*		FrameBuffer = nullptr;								// 화면 출력용 텍스쳐
+	ID3D11RenderTargetView* FrameBufferRTV = nullptr;							// 텍스쳐를 렌더 타겟으로 사용하는 뷰
+	ID3D11RasterizerState*	RasterizerState = nullptr;							// 래스터라이저 상태(컬링, 채우기 모드 정의)
+	ID3D11Buffer*			ConstantBuffer = nullptr;							// 쉐이더에 데이터를 전달하기 위한 상수 버퍼
 
-	FLOAT ClearColor[4] = {
-		0.025f, 0.025f, 0.025f, 1.f
-	};  // 화면을 초기화(clear) 할때 사용할 색상 RGBA
-	D3D11_VIEWPORT ViewportInfo;  // 렌더링 영역 정의하는 뷰포트 정보
+	FLOAT					ClearColor[4] = { 0.025f, 0.025f, 0.025f, 1.f };	// 화면을 초기화(clear) 할때 사용할 색상 RGBA
+	D3D11_VIEWPORT			ViewportInfo;										// 렌더링 영역 정의하는 뷰포트 정보
 
 public:
 	// Renderer 초기화 함수
@@ -258,20 +372,19 @@ public:
 
 		// 스왑 체인 설정 구조체 초기화
 		DXGI_SWAP_CHAIN_DESC swapChainDesc = {};
-		swapChainDesc.BufferDesc.Width = 0;   // 창 크기에 맞게 자동으로 설정
-		swapChainDesc.BufferDesc.Height = 0;  // 창 크기에 맞게 자동으로 설정
+		swapChainDesc.BufferDesc.Width = 0;							// 창 크기에 맞게 자동으로 설정
+		swapChainDesc.BufferDesc.Height = 0;						// 창 크기에 맞게 자동으로 설정
 		swapChainDesc.BufferDesc.Format =
-			DXGI_FORMAT_B8G8R8A8_UNORM;      // 색상 포맷
-		swapChainDesc.SampleDesc.Count = 1;  // 멀티 샘플링 비활성화
+			DXGI_FORMAT_B8G8R8A8_UNORM;								// 색상 포맷
+		swapChainDesc.SampleDesc.Count = 1;							// 멀티 샘플링 비활성화
 		swapChainDesc.BufferUsage =
-			DXGI_USAGE_RENDER_TARGET_OUTPUT;   // 렌더 타겟으로 사용
-		swapChainDesc.BufferCount = 2;         // 더블 버퍼링
-		swapChainDesc.OutputWindow = hWindow;  // 렌더링할 창 핸들
-		swapChainDesc.Windowed = TRUE;         // 창 모드
-		swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;  // 스왑 방식
+			DXGI_USAGE_RENDER_TARGET_OUTPUT;						// 렌더 타겟으로 사용
+		swapChainDesc.BufferCount = 2;								// 더블 버퍼링
+		swapChainDesc.OutputWindow = hWindow;						// 렌더링할 창 핸들
+		swapChainDesc.Windowed = TRUE;								// 창 모드
+		swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;	// 스왑 방식
 
 		// Direct3D 장치와 스왑 체인 생성
-
 		D3D11CreateDeviceAndSwapChain(
 			nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr,
 			D3D11_CREATE_DEVICE_BGRA_SUPPORT | D3D11_CREATE_DEVICE_DEBUG,
@@ -282,12 +395,14 @@ public:
 		SwapChain->GetDesc(&swapChainDesc);
 
 		// 뷰포트 정보 설정
-		ViewportInfo = { 0.0f,
-						 0.0f,
-						 (float)swapChainDesc.BufferDesc.Width,
-						 (float)swapChainDesc.BufferDesc.Height,
-						 0.0f,
-						 1.0f };
+		ViewportInfo = { 
+			0.0f,									// TopLeftX
+			0.0f,									// TopLeftY
+			(float)swapChainDesc.BufferDesc.Width,	// Width
+			(float)swapChainDesc.BufferDesc.Height, // Height
+			0.0f,									// MinDepth
+			1.0f									// MaxDepth
+		};
 	}
 
 	// Direct3D 장치 및 스왑 체인을 해제하는 함수
@@ -319,18 +434,14 @@ public:
 	void CreateFrameBuffer()
 	{
 		// 스왑 체인으로부터 백 버퍼 텍스쳐 가져오기
-		SwapChain->GetBuffer(0, __uuidof(ID3D11Texture2D),
-			OUT (void**)&FrameBuffer);
+		SwapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), OUT (void**)&FrameBuffer);
 
 		// 렌더 타겟 뷰 설정
 		D3D11_RENDER_TARGET_VIEW_DESC frameBufferRTVDesc = {};
-		frameBufferRTVDesc.Format =
-			DXGI_FORMAT_B8G8R8A8_UNORM_SRGB;  // 색상 포맷
-		frameBufferRTVDesc.ViewDimension =
-			D3D11_RTV_DIMENSION_TEXTURE2D;  // 2D 텍스처
+		frameBufferRTVDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM_SRGB;		// 색상 포맷
+		frameBufferRTVDesc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D;	// 2D 텍스처
 
-		Device->CreateRenderTargetView(FrameBuffer, &frameBufferRTVDesc,
-			OUT &FrameBufferRTV);
+		Device->CreateRenderTargetView(FrameBuffer, &frameBufferRTVDesc, OUT &FrameBufferRTV);
 	}
 	// 프레임 버퍼 해제하는 함수
 	void ReleaseFrameBuffer()
@@ -389,7 +500,6 @@ public:
 	/******************************************
 	 *     vertex, pixel Shader Section
 	 ******************************************/
-
 public:
 	ID3D11VertexShader* SimpleVertexShader;
 	ID3D11PixelShader* SimplePixelShader;
@@ -522,8 +632,8 @@ public:
 	 ******************************************/
 	struct FConstants
 	{
-		FVector Offset;
-		float Pad;
+		FVector3 Offset;	// 공 위치 오프셋
+		float Scale;		// 공의 크기
 	};
 
 	void CreateConstantBuffer()
@@ -549,7 +659,11 @@ public:
 	}
 
 	// 상수 버퍼 갱신 함수
-	void UpdateConstant(FVector Offset)
+	/*
+	* UBall의 크기 정보 처리 필요 -> constant buffer를 16바이트로 맞추기 위해 억지로 넣은 Pad 변수를 활용
+	* - Scale값을 넘겨 VertexShader에서 크기를 처리
+	*/
+	void UpdateConstant(FVector3 Offset, float Scale)
 	{
 		if (ConstantBuffer)
 		{
@@ -560,6 +674,7 @@ public:
 			FConstants* constants = (FConstants*)constantBufferMSR.pData;
 			{
 				constants->Offset = Offset;
+				constants->Scale = Scale;
 			}
 			DeviceContext->Unmap(ConstantBuffer, 0);
 		}
@@ -567,16 +682,121 @@ public:
 };
 #pragma endregion
 
+// UBall::TotalNumBalls > LastNumberOfBalls (사용자가 입력한 공의 개수가 현재 배열에 있는 공의 개수보다 적은 경우, 공 삭제)
+void RemoveBalls(int diff)
+{
+	if (UBall::TotalNumBalls - diff <= 0) return; //만약 diff개 만큼 삭제 후 남은 공의 개수가 0 이하라면 삭제 불가능(조건 위반)
+
+	int CacheTotalNumBalls;
+
+	for (int i = 0; i < diff; ++i) // diff개 공을 해제해야함.
+	{
+		CacheTotalNumBalls = UBall::TotalNumBalls; // 현재 배열의 길이 캐싱
+		//삭제할 공 index 선정
+		int idx = rand() % (UBall::TotalNumBalls); // 현재 배열에서 삭제할 원소 하나 선택.
+		
+		//해당 원소 할당 해제 (가상함수로 소멸자 선언했기 때문에 적절한 소멸자가 호출됨)
+		delete PrimitiveList[idx]; //객체 즉시 소멸
+
+		UPrimitive** NewPrimitiveList = new UPrimitive * [UBall::TotalNumBalls]; //감소된 갯수만큼의 동적 배열 할당.
+
+		//copy 작업 수행
+		int NewIdx = 0;
+		for (int j = 0; j < CacheTotalNumBalls; ++j)
+		{
+			if (j == idx) continue;
+			NewPrimitiveList[NewIdx] = PrimitiveList[j];
+			++NewIdx;
+		}
+		delete[] PrimitiveList;
+
+		PrimitiveList = NewPrimitiveList;
+	}
+}
+
+// LastNumberOfBalls > UBall::TotalNumBalls (사용자가 입력한 공의 개수가 현재 배열에 있는 공의 개수보다 많은 경우, 공 추가)
+void AddBalls(int diff)
+{
+	//기존 배열에 diff개 만큼의 공을 추가로 할당해야함.
+	if (diff <= 0) return;
+
+	UPrimitive** NewPrimitiveList = new UPrimitive*[UBall::TotalNumBalls + diff];
+
+	int PrevNumberOfBalls = UBall::TotalNumBalls; //TotalNumBalls 값 복사
+
+	for (int i = 0; i < PrevNumberOfBalls; ++i)
+	{
+		NewPrimitiveList[i] = PrimitiveList[i];
+	}
+
+	for (int i = PrevNumberOfBalls; i < PrevNumberOfBalls + diff; ++i)
+	{
+		NewPrimitiveList[i] = new UBall();
+	}
+
+	delete[] PrimitiveList;
+
+	PrimitiveList = NewPrimitiveList;
+}
+
+// 두 공의 충돌 여부 판단 및 탄성 충돌로 인해 새로 생긴 속도를 게산하는 함수
+void CheckElasticCollision()
+{
+	//두 공을 각각 보면서 충돌이 발생했는지 체크
+	for (int i = 0; i < UBall::TotalNumBalls; ++i) for (int j = i + 1; j < UBall::TotalNumBalls; ++j)
+	{
+		UBall* Ball1 = static_cast<UBall*>(PrimitiveList[i]);
+		UBall* Ball2 = static_cast<UBall*>(PrimitiveList[j]);
+
+		//두 공의 중심 거리의 제곱 (연산 편의성)
+		float DistanceSquare = (Ball1->Location - Ball2->Location).LengthSquare();
+		if (DistanceSquare > (Ball1->Radius + Ball2->Radius) * (Ball1->Radius + Ball2->Radius)) //두 구의 반지름의 합 보다 거리가 크다면 두 원은 떨어져 있는 것이다.
+		{
+			continue; //충돌하지 않음.
+		}
+		
+		// Ball2->Ball1 단위 벡터
+		FVector3 Normal = Ball1->Location - Ball2->Location; 
+		Normal.Normalize();
+
+		// 두 공이 겹치는 부분의 절반씩 밀어내기 (겹침 현상 해결)
+		float Distance = sqrtf(DistanceSquare);
+		float Overlap = ((Ball1->Radius + Ball2->Radius) - Distance) / 2.f;
+
+		//각 공을 반대방향으로 밀치기
+		Ball1->Location += Normal * Overlap;
+		Ball2->Location -= Normal * Overlap;
+
+		// 1차원 뉴턴 충돌 계산을 위한 각 공의 속도를 단위벡터로 투영하여 1차원 상의 속도 구하기
+		float v1 = FVector3::DotProduct(Ball1->Velocity, Normal);
+		float v2 = FVector3::DotProduct(Ball2->Velocity, Normal);
+
+		//각 공의 질량
+		float m1 = Ball1->Mass;
+		float m2 = Ball2->Mass;
+
+		// 새로운 속도 계산
+		float NewVelocity1 = ((m1 - m2) * v1 + 2 * m2 * v2) / (m1 + m2);
+		float NewVelocity2 = ((m2 - m1) * v2 + 2 * m1 * v1) / (m1 + m2);
+
+		// 법선 방향의 속도만 수정(법선 방향)
+		/*
+		* 왜 v1, v2을 빼야하는가?
+		* - Ball->Velocity는 Normal(법선) 벡터 와 Tangent(접선) 벡터의 합으로 이루어져있음
+		* - 따라서 Ball->Velocity = v1 * Normal + Tangent임.
+		* - 근데 새로 계산된 속도를 법선 방향에 적용해야함.
+		* - 따라서 v1 * Normal값을 제거하기 위해 NewVelocity1 - v1을 대입
+		*/
+		Ball1->Velocity += Normal * (NewVelocity1 - v1);
+		Ball2->Velocity += Normal * (NewVelocity2 - v2);
+	}
+}
+
 extern LRESULT ImGui_ImplWin32_WndProcHandler(HWND hwnd, UINT msg,
 	WPARAM wParam, LPARAM lParam);
 
 /*
  * 각종 메세지를 처리할 함수
- * @param hWnd:
- * @param message
- * @param wParam
- * @param lParam
- * @return 콜백함수
  */
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
@@ -599,14 +819,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 /*
  * 가장 기본이 되는 메인 함수
- * @param hIntance: 인스턴스
- * @param hPrevInstance: 이전 인스턴스
- * @param lpCmdLine:
- * @param nShowCmd:
- * @return 프로그램 안전 종료 체크 (0이면 안전 아니면 비정상적인 종료)
  */
-int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
-	LPSTR lpCmdLine, int nShowCmd)
+int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd)
 {
 	// 윈도우 클래스 지정
 	WCHAR WindowClass[] = L"JungleWindowClass";
@@ -647,80 +861,42 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 	ImGui_ImplDX11_Init(renderer.Device, renderer.DeviceContext);
 
 	// Renderer와 Shader 생성 이후에 Vertex Buffer 생성
-	UINT numVerticesTriangle = sizeof(triangle_vertices) / sizeof(FVertexSimple);
-	UINT numVerticesCube = sizeof(cube_vertices) / sizeof(FVertexSimple);
 	UINT numVerticesSphere = sizeof(sphere_vertices) / sizeof(FVertexSimple);
 
-	// 구 크기 조절
-	float scaleMod = 0.1f;
-
-	for (UINT i = 0; i < numVerticesSphere; ++i)
-	{
-		sphere_vertices[i].x *= scaleMod;
-		sphere_vertices[i].y *= scaleMod;
-		sphere_vertices[i].z *= scaleMod;
-	}
-
-	//Vertex Buffer 선언(triangle, cube, sphere)
-	ID3D11Buffer* vertexBufferTriangle = renderer.CreateVertexBuffer(triangle_vertices, sizeof(triangle_vertices));
-	ID3D11Buffer* vertexBufferCube = renderer.CreateVertexBuffer(cube_vertices, sizeof(cube_vertices));
+	//Vertex Buffer 선언(sphere)
 	ID3D11Buffer* vertexBufferSphere = renderer.CreateVertexBuffer(sphere_vertices, sizeof(sphere_vertices));
 
-	// 도형의 움직임 정도를 담을 offset 변수.
-	FVector offset(0.f);
-	// 도형의 속도를 담을 변수
-	FVector velocity(0.f);
-
-	bool bIsExit = false;
-
-	// 각종 생성하는 코드를 여기에 추가한다.
-	// Main Loop(Quit Message가 들어오기 전가지 아래 Loop를 무한히 실행한다)
-
-	// 어떤 도형을 렌더링하는지 나타내는 열거형
-	enum ETypePrimitive
-	{
-		EPT_Triangle,
-		EPT_Cube,
-		EPT_Sphere,
-		EPT_MAX
-	};
-
-	ETypePrimitive typePrimitive = EPT_Sphere;
-
-	//NDC
-	const float leftBorder = -1.f;
-	const float rightBorder = 1.f;
-	const float topBorder = 1.f;
-	const float bottomBorder = -1.f;
-	const float sphereRadius = 1.f;
-
-	bool bBoundBallToScreen = true;
-	// 핀볼 움직임 여부를 나타내는 bPinballMovement 정의
-	bool bPinballMovement = true;
-	// 핀볼에 임의의속도를 부여
-	//  0.001f 를 조절해공의 초기 속도 조절
-	float ballSpeed = 0.0005f;
-	float prevSpeed = 0.0005f;
-	velocity.x = ((float)(rand() % 100 - 50)) * ballSpeed;
-	velocity.y = ((float)(rand() % 100 - 50)) * ballSpeed;
-
-	// FPS 제한을 위한 설정
+	// FPS 제한을 위한 설정 (60FPS)
 	const int targetFPS = 60;
-	const double targetFrameTime =
-		1000.0 / targetFPS;  // 한 프레임의 목표 시간(밀리초 단위)
+	const double targetFrameTime = 1000.0 / targetFPS;  // 한 프레임의 목표 시간(밀리초 단위)
 
 	// 고성능 타이머 초기화
 	LARGE_INTEGER frequency;
 	QueryPerformanceFrequency(&frequency);
 
+	// FPS 체크를 위한 시작/종료시간
 	LARGE_INTEGER startTime, endTime;
+
+	// 경과시간(End - Start)
 	double elapsedTime = 0.0;
-	int frameCount =
-		0;  // 1초(1000ms)동안 프레임이 몇번 갱신됐는지 count 하는 변수
-	double frameRate =
-		0.0;  // elapsedTime을 계속해서 받는 함수로, 누적합이 몇인지 체크
-	int UICount = 1;
-	int prevCount = 60;
+
+	//초기 1개의 구체 생성
+	UBall* initBall = new UBall();
+
+	// 생성된 공을 PrimitiveList에서 가리키게 지정.
+	PrimitiveList = new UPrimitive * [UBall::TotalNumBalls];	
+	PrimitiveList[0] = initBall;
+	
+	//더이상 사용하지않는 initBall 포인터 변수 처리
+	initBall = nullptr;
+
+	//이전 프레임의 공의 개수를 보관하는 변수
+	int LastNumberOfBalls = UBall::TotalNumBalls;
+
+	bool bApplyAngularVelocity = false;
+
+	bool bIsExit = false;
+	// Main Loop(Quit Message가 들어오기 전가지 아래 Loop를 무한히 실행한다)
 	while (bIsExit == false)
 	{
 		// 루프 시간 기록
@@ -740,73 +916,38 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 				bIsExit = true;
 				break;
 			}
-			else if (msg.message == WM_KEYDOWN)  // 키보드 눌렀을 때
-			{
-				if (msg.wParam == VK_LEFT)
-				{
-					offset.x -= 0.01f;
-				}
-				if (msg.wParam == VK_RIGHT)
-				{
-					offset.x += 0.01f;
-				}
-				if (msg.wParam == VK_UP)
-				{
-					offset.y += 0.01f;
-				}
-				if (msg.wParam == VK_DOWN)
-				{
-					offset.y -= 0.01f;
-				}
-			}
-			// 키보드 처리 직후에 화면 밖을 벗어났다면 화면 안쪽으로 위치시킨다
-			// 화면을 벗어나지 않게 처리
-			if (bBoundBallToScreen)
-			{
-				float renderRadius = sphereRadius * scaleMod;
-				if (offset.x < leftBorder + renderRadius)
-				{
-					offset.x = leftBorder + renderRadius;
-				}
-				if (offset.x > rightBorder - renderRadius)
-				{
-					offset.x = rightBorder - renderRadius;
-				}
-				if (offset.y > topBorder - renderRadius)
-				{
-					offset.y = topBorder - renderRadius;
-				}
-				if (offset.y < bottomBorder + renderRadius)
-				{
-					offset.y = bottomBorder + renderRadius;
-				}
-			}
 		}
-		// 핀볼 움직임이 켜져있다면
-		if (bPinballMovement)
-		{
-			// 속도를 공 위치에 더해 공을 실질적으로 움직임
-			offset += velocity;
 
-			// 벽과 충돌 여부를 체크하고 충돌 시 속도에 음수를 곱해 방향을 바꿈
-			float renderRadius = sphereRadius * scaleMod;
-			if (offset.x < leftBorder + renderRadius)
+		/* 
+		* 이 부분에서 TotalNumBalls 개수를 체크해서 객체 할당 또는 해제 진행
+		*/
+		//UBall 클래스의 생성자와 소멸자에서 TotalNumBalls 관리. 따로 신경X
+		if (LastNumberOfBalls < UBall::TotalNumBalls) // 사용자가 더 적은 개수의 공을 입력 -> 차이 만큼 공을 제거
+		{
+			RemoveBalls(UBall::TotalNumBalls - LastNumberOfBalls);
+		}
+		else if (LastNumberOfBalls > UBall::TotalNumBalls) // 사용자가 더 많은 개수의 공을 입력 -> 차이만큼 공을 추가
+		{
+			AddBalls(LastNumberOfBalls - UBall::TotalNumBalls);
+		}
+
+		// 공 움직임 적용
+		for (int i = 0; i < UBall::TotalNumBalls; ++i)
+		{
+			UBall* Ball = static_cast<UBall*>(PrimitiveList[i]);
+
+			if (bApplyAngularVelocity)
 			{
-				velocity.x *= -1;
+				Ball->MoveAngular();
 			}
-			if (offset.x > rightBorder - renderRadius)
+			else
 			{
-				velocity.x *= -1;
-			}
-			if (offset.y > topBorder - renderRadius)
-			{
-				velocity.y *= -1;
-			}
-			if (offset.y < bottomBorder + renderRadius)
-			{
-				velocity.y *= -1;
+				Ball->MoveAccelerate();
 			}
 		}
+
+		//충돌 검사 및 탄성 충돌
+		CheckElasticCollision();
 
 		///////////////////////////////////////
 		// 매번 실행되는 코드를 여기에 추가합니다
@@ -814,21 +955,15 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 		// 준비 작업
 		renderer.Prepare();
 		renderer.PrepareShader();
-		renderer.UpdateConstant(offset);
 
-		// 생성한 버텍스 버퍼를 넘겨 실질적인 렌더링 요청(Draw 요청)
-		switch (typePrimitive)
+		for (int i = 0; i < UBall::TotalNumBalls; ++i)
 		{
-		case EPT_Triangle:
-			renderer.RenderPrimitive(vertexBufferTriangle,
-				numVerticesTriangle);
-			break;
-		case EPT_Cube:
-			renderer.RenderPrimitive(vertexBufferCube, numVerticesCube);
-			break;
-		case EPT_Sphere:
+			// 상수 버퍼 갱신
+			UBall* Ball = static_cast<UBall*>(PrimitiveList[i]);
+			renderer.UpdateConstant(Ball->Location, Ball->Radius);
+
+			// 생성한 버텍스 버퍼를 넘겨 실질적인 렌더링 요청(Draw 요청)
 			renderer.RenderPrimitive(vertexBufferSphere, numVerticesSphere);
-			break;
 		}
 
 		ImGui_ImplDX11_NewFrame();
@@ -840,13 +975,18 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 		ImGui::Begin("Jungle Property Window");
 		//**********************IMGUI section Start**********************
 		ImGui::Text("Hello Jungle World!");
+		
+		ImGui::BeginDisabled(bApplyAngularVelocity);
+		ImGui::Checkbox("Gravity", &UBall::bApplyGravity);
+		ImGui::EndDisabled();
 
-		ImGui::Checkbox("Bound Ball To Screen", &bBoundBallToScreen);
-		// 핀볼 움직임 켜고 끌 수 있는 UI와 연결
-		ImGui::Checkbox("PinBall Movement", &bPinballMovement);
-		ImGui::Text("Speed: (%f, %f, %f)", velocity.x, velocity.y, velocity.z);
+		ImGui::BeginDisabled(UBall::bApplyGravity);
+		ImGui::Checkbox("Angular Velocity", &bApplyAngularVelocity);
+		ImGui::EndDisabled();
 
-		ImGui::Text("%.3f ms/Frame \n%.1f FPS", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+		ImGui::InputInt("Number of Balls", &LastNumberOfBalls);
+		LastNumberOfBalls = max(LastNumberOfBalls, 1); //공의 개수가 1 이하로 떨어지지 않게 조절	
+		
 
 		//**********************IMGUI section End**********************
 		ImGui::End();
@@ -864,8 +1004,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 			Sleep(0);
 
 			QueryPerformanceCounter(&endTime);
-			elapsedTime = (endTime.QuadPart - startTime.QuadPart) * 1000.0 /
-			frequency.QuadPart;
+			elapsedTime = (endTime.QuadPart - startTime.QuadPart) * 1000.0 / frequency.QuadPart;
 		} while (elapsedTime < targetFrameTime);
 	}
 
@@ -877,8 +1016,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 	// 소멸하는 코드를 여기에 추가합니다
 
 	// renderer소멸 전에 vertex buffer소멸 처리
-	renderer.ReleaseVertexBuffer(vertexBufferTriangle);
-	renderer.ReleaseVertexBuffer(vertexBufferCube);
 	renderer.ReleaseVertexBuffer(vertexBufferSphere);
 
 	// 쉐이더 소멸 직전 상수 버퍼 소멸 함수 호출
@@ -889,6 +1026,17 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 
 	// D3D11 소멸시키는 함수를 호출
 	renderer.Release();
+	
+
+	// 남은 Ball 객체 소멸
+	// delete를 할 때 마다 UBall::TotalNumBalls 값이 변하기 때문에 값을 복사해서 사용
+	int TotalBallCnt = UBall::TotalNumBalls;
+
+	for (int i = 0; i < TotalBallCnt; i++)
+	{
+		delete PrimitiveList[i];
+	}
+	delete[] PrimitiveList;
 
 	return 0;
 }
