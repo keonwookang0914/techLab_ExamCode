@@ -985,6 +985,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		ImGui::EndDisabled();
 
 		ImGui::InputInt("Number of Balls", &LastNumberOfBalls);
+		ImGui::Text("Krafton Tech Lab 01");
 		LastNumberOfBalls = max(LastNumberOfBalls, 1); //공의 개수가 1 이하로 떨어지지 않게 조절	
 		
 
