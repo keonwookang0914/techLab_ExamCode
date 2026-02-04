@@ -142,6 +142,10 @@ struct FVector3
 		}
 		return *this;
 	}
+
+	float GetX() { return x; }
+	float GetY() { return y; }
+	float GetZ() { return z; }
 };
 
 class UPrimitive
@@ -162,6 +166,7 @@ public:
 
 	static int TotalNumBalls;	// 생성된 총 UBall의 개수를 보관하는 변수
 	static bool bApplyGravity;	// 중력 적용 여부 체크용 bool 변수
+	FVector3 AngularVelocity; //각속도 보관
 
 	UBall() :
 		Location{ //위치의 범위는 -0.5 ~ 0.5로 설정
@@ -177,6 +182,7 @@ public:
 		, Mass{ //질량이 크기에 비례하게 설정
 			Radius 
 		}
+		, AngularVelocity{0}
 	{
 		++TotalNumBalls; // 생성자 호출시 카운트 1 증가
 	}
@@ -218,7 +224,7 @@ public:
 
 		if (bApplyGravity) //중력 적용 ( 중력 계수 1.0f)
 		{
-			Velocity.y -= 1.f * FixedTimeStep;
+			Velocity.y -= 9.8f * FixedTimeStep;
 		}
 
 		Location += Velocity * FixedTimeStep;
@@ -243,7 +249,7 @@ public:
 
 		// 현재 속도값을 사용해 각속도 계산 
 		// w = r x v / (abs(r) * abs(r))
-		FVector3 AngularVelocity = FVector3::CrossProduct(Location, Velocity);
+		AngularVelocity = FVector3::CrossProduct(Location, Velocity);
 		AngularVelocity /= Location.LengthSquare();
 
 		// 각속도를 기반으로 원운동 궤적 생성하기
@@ -255,6 +261,8 @@ public:
 
 		HandleBoundaryCollision();
 	}
+
+	FORCEINLINE FVector3 GetAngularVelocity() { return AngularVelocity; }
 };
 int UBall::TotalNumBalls = 0; // 0으로 초기화(이후 생성자에서 1 증가, 소멸자에서 1 감소)
 bool UBall::bApplyGravity = true;
@@ -776,7 +784,7 @@ void CheckElasticCollision()
 		// 1차원 뉴턴 충돌 계산을 위한 각 공의 속도를 단위벡터로 투영하여 1차원 상의 속도 구하기
 		float v1 = FVector3::DotProduct(Ball1->Velocity, Normal);
 		float v2 = FVector3::DotProduct(Ball2->Velocity, Normal);
-
+		
 		//각 공의 질량
 		float m1 = Ball1->Mass;
 		float m2 = Ball2->Mass;
@@ -795,6 +803,17 @@ void CheckElasticCollision()
 		*/
 		Ball1->Velocity += Normal * (NewVelocity1 - v1);
 		Ball2->Velocity += Normal * (NewVelocity2 - v2);
+		/*FVector3 v1 = Ball1->Velocity;
+		FVector3 v2 = Ball2->Velocity;
+		float B1x = 2 * m2 / (m1 + m2);
+		float B2x = 2 * m1 / (m1 + m2);
+		FVector3 x1 = Ball1->Location;
+		FVector3 x2 = Ball2->Location;
+
+		FVector3 B1y = FVector3::DotProduct(v1 - v2, x1 - x2) * (x1 - x2) / (x1 - x2).LengthSquare();
+		FVector3 B2y = FVector3::DotProduct(v2 - v1, x2 - x1) * (x2 - x1) / (x2 - x1).LengthSquare();
+		Ball1->Velocity = v1 - B1x * B1y;
+		Ball2->Velocity = v2 - B2x * B2y;*/
 	}
 }
 
@@ -994,6 +1013,12 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		ImGui::Text("Krafton Tech Lab 01");
 		LastNumberOfBalls = max(LastNumberOfBalls, 1); //공의 개수가 1 이하로 떨어지지 않게 조절	
 		
+		for (int i = 0; i < UBall::TotalNumBalls; ++i)
+		{
+			ImGui::Text("Ball Info");
+			FVector3 AngularV = static_cast<UBall*>(PrimitiveList[i])->GetAngularVelocity();
+			ImGui::Text("AngularVelocity: (%f, %f, %f)", AngularV.GetX(), AngularV.GetY(), AngularV.GetZ());
+		}
 
 		//**********************IMGUI section End**********************
 		ImGui::End();
