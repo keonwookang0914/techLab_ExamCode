@@ -217,14 +217,14 @@ public:
 		}
 	}
 
-	//공을 움직이게 하는 함수 (등가속도 또는 등속도 운동 수행)
+	// 공을 움직이게 하는 함수 (등가속도 또는 등속도 운동 수행)
 	void MoveAccelerate()
 	{
-		constexpr float FixedTimeStep = 1.f / 60.f; //물리 연산이기 때문에 규칙적인 호출인 Fixed Update 사용(일정 간격)
+		constexpr float FixedTimeStep = 1.f / 60.f; // 물리 연산이기 때문에 규칙적인출인 Fixed Update 사용(일정 간격)
 
 		if (bApplyGravity) //중력 적용 ( 중력 계수 1.0f)
 		{
-			Velocity.y -= 9.8f * FixedTimeStep;
+			Velocity.y -= 1.0f * FixedTimeStep;
 		}
 
 		Location += Velocity * FixedTimeStep;
@@ -249,6 +249,7 @@ public:
 
 		// 현재 속도값을 사용해 각속도 계산 
 		// w = r x v / (abs(r) * abs(r))
+		// 옵션이 활성화된 시점에 1번만 했어야함
 		AngularVelocity = FVector3::CrossProduct(Location, Velocity);
 		AngularVelocity /= Location.LengthSquare();
 
@@ -768,9 +769,9 @@ void CheckElasticCollision()
 		{
 			continue; //충돌하지 않음.
 		}
-		
+
 		// Ball2->Ball1 단위 벡터
-		FVector3 Normal = Ball1->Location - Ball2->Location; 
+		FVector3 Normal = Ball1->Location - Ball2->Location;
 		Normal.Normalize();
 
 		// 두 공이 겹치는 부분의 절반씩 밀어내기 (겹침 현상 해결)
@@ -803,17 +804,6 @@ void CheckElasticCollision()
 		*/
 		Ball1->Velocity += Normal * (NewVelocity1 - v1);
 		Ball2->Velocity += Normal * (NewVelocity2 - v2);
-		/*FVector3 v1 = Ball1->Velocity;
-		FVector3 v2 = Ball2->Velocity;
-		float B1x = 2 * m2 / (m1 + m2);
-		float B2x = 2 * m1 / (m1 + m2);
-		FVector3 x1 = Ball1->Location;
-		FVector3 x2 = Ball2->Location;
-
-		FVector3 B1y = FVector3::DotProduct(v1 - v2, x1 - x2) * (x1 - x2) / (x1 - x2).LengthSquare();
-		FVector3 B2y = FVector3::DotProduct(v2 - v1, x2 - x1) * (x2 - x1) / (x2 - x1).LengthSquare();
-		Ball1->Velocity = v1 - B1x * B1y;
-		Ball2->Velocity = v2 - B2x * B2y;*/
 	}
 }
 
@@ -1013,8 +1003,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		ImGui::Text("Krafton Tech Lab 01");
 		LastNumberOfBalls = max(LastNumberOfBalls, 1); //공의 개수가 1 이하로 떨어지지 않게 조절	
 		
-		for (int i = 0; i < UBall::TotalNumBalls; ++i)
-		{
+		for (int i = 0; i < UBall::TotalNumBalls; ++i){
 			ImGui::Text("Ball Info");
 			FVector3 AngularV = static_cast<UBall*>(PrimitiveList[i])->GetAngularVelocity();
 			ImGui::Text("AngularVelocity: (%f, %f, %f)", AngularV.GetX(), AngularV.GetY(), AngularV.GetZ());
