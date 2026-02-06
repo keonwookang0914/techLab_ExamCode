@@ -12,8 +12,7 @@
 #include "ImGui/imgui_impl_win32.h"
 #include "ImGui/imgui_internal.h"
 
-
-//forward declarations
+// forward declarations
 class UPrimitive;
 class UBall;
 class URenderer;
@@ -23,19 +22,19 @@ struct FVertexSimple;
 // UBall 객체를 보관할 배열 -> 많은 함수에서 접근하기 때문에 전역 변수로 선언
 UPrimitive** PrimitiveList;
 
-
 // 정점 정의 구조체
 struct FVertexSimple
 {
-	float x, y, z;     // position
-	float r, g, b, a;  // color
+	float x, y, z;	  // position
+	float r, g, b, a; // color
 };
 
 // 3차원 Vector 구조체
 struct FVector3
 {
 	float x, y, z;
-	FVector3(float _x = 0.f, float _y = 0.f, float _z = 0.f) : x(_x), y(_y), z(_z) {}
+	FVector3(float _x = 0.f, float _y = 0.f, float _z = 0.f)
+		: x(_x), y(_y), z(_z) {}
 
 	static float DotProduct(const FVector3& lhs, const FVector3& rhs)
 	{
@@ -153,43 +152,44 @@ class UPrimitive
 public:
 	UPrimitive() = default;
 
-	virtual ~UPrimitive() = default; //안전한 자식 소멸자 호출을 위해 부모 소멸자를 가상함수로 선언
+	virtual ~UPrimitive() = default; // 안전한 자식 소멸자 호출을 위해 부모 소멸자를 가상함수로 선언
 };
 
 class UBall : public UPrimitive
 {
 public:
-	FVector3 Location;	// 공의 위치
-	FVector3 Velocity;	// 공의 속도
-	float Radius;		// 공의 크기
-	float Mass;			// 공의 질량
+	FVector3 Location; // 공의 위치
+	FVector3 Velocity; // 공의 속도
+	float	 Radius;   // 공의 크기
+	float	 Mass;	   // 공의 질량
 
-	static int TotalNumBalls;	// 생성된 총 UBall의 개수를 보관하는 변수
-	static bool bApplyGravity;	// 중력 적용 여부 체크용 bool 변수
-	FVector3 AngularVelocity; //각속도 보관
+	static int	TotalNumBalls;	 // 생성된 총 UBall의 개수를 보관하는 변수
+	static bool bApplyGravity;	 // 중력 적용 여부 체크용 bool 변수
+	FVector3	AngularVelocity; // 각속도 보관
 
-	UBall() :
-		Location{ //위치의 범위는 -0.5 ~ 0.5로 설정
+	UBall()
+		: Location{ // 위치의 범위는 -0.5 ~ 0.5로 설정
 			(static_cast<float>(rand()) / (static_cast<float>(RAND_MAX))) * 1.0f - 0.5f,
 			(static_cast<float>(rand()) / (static_cast<float>(RAND_MAX))) * 1.0f - 0.5f,
-			0.f}
-		, Velocity{ //속도는 -0.5 ~ 0.5로 설정
-			(static_cast<float>(rand()) / (static_cast<float>(RAND_MAX))) * 1.f - 0.5f,
-			(static_cast<float>(rand()) / (static_cast<float>(RAND_MAX))) * 1.f - 0.5f,
-			0.f}
-		, Radius{ // 공의 크기는 0.1~0.2로 설정
-			(static_cast<float>(rand()) / (static_cast<float>(RAND_MAX))) * 0.1f + 0.1f }
-		, Mass{ //질량이 크기에 비례하게 설정
-			Radius 
+			0.f
 		}
-		, AngularVelocity{0}
+		, Velocity{ // 속도는 -0.5 ~ 0.5로 설정
+			(static_cast<float>(rand()) / (static_cast<float>(RAND_MAX))) * 1.f - 0.5f, (static_cast<float>(rand()) / (static_cast<float>(RAND_MAX))) * 1.f - 0.5f, 0.f
+		}
+		, Radius{ // 공의 크기는 0.1~0.2로 설정
+			(static_cast<float>(rand()) / (static_cast<float>(RAND_MAX))) * 0.1f + 0.1f
+		}
+		, Mass{ // 질량이 크기에 비례하게 설정
+			Radius
+		}
+		, AngularVelocity{ 0 }
 	{
 		++TotalNumBalls; // 생성자 호출시 카운트 1 증가
 	}
 
 	virtual ~UBall() override
 	{
-		--TotalNumBalls;  // 소멸자 호출 시 카운트 1 감소
+		--TotalNumBalls; // 소멸자 호출 시 카운트 1 감소
 	}
 
 	// 벽과의 충돌 처리 + 위치 보정(위치를 지정하지 않으면 화면 밖으로 공이 밀려난다)
@@ -222,7 +222,7 @@ public:
 	{
 		constexpr float FixedTimeStep = 1.f / 60.f; // 물리 연산이기 때문에 규칙적인출인 Fixed Update 사용(일정 간격)
 
-		if (bApplyGravity) //중력 적용 ( 중력 계수 1.0f)
+		if (bApplyGravity) // 중력 적용 ( 중력 계수 1.0f)
 		{
 			Velocity.y -= 1.0f * FixedTimeStep;
 		}
@@ -236,18 +236,18 @@ public:
 	void MoveAngular()
 	{
 		/*
-		* 회전 중심으로부터 r만큼떨어진 물체의 속도 v와 각속도 w사이의 관계
-		* v = w x r
-		* 물체의 운동이 평면상에서 이루어지는 경우 r과 w가 수직이 되어 아래와 같이 각속도에 대해 식을 쓸 수 있다
-		* w = r x v / (abs(r) * abs(r)) 
-		* 이를 사용해 velocity를 각속도 운동으로 변환
-		*/
+		 * 회전 중심으로부터 r만큼떨어진 물체의 속도 v와 각속도 w사이의 관계
+		 * v = w x r
+		 * 물체의 운동이 평면상에서 이루어지는 경우 r과 w가 수직이 되어 아래와 같이 각속도에 대해 식을 쓸 수 있다
+		 * w = r x v / (abs(r) * abs(r))
+		 * 이를 사용해 velocity를 각속도 운동으로 변환
+		 */
 
-		//중점은 FVector(0, 0, 0) 이라고 가정 -> Location을 r로 간주.
+		// 중점은 FVector(0, 0, 0) 이라고 가정 -> Location을 r로 간주.
 
-		constexpr float FixedTimeStep = 1.f / 60.f; //물리 연산이기 때문에 고정 업데이트 사용
+		constexpr float FixedTimeStep = 1.f / 60.f; // 물리 연산이기 때문에 고정 업데이트 사용
 
-		// 현재 속도값을 사용해 각속도 계산 
+		// 현재 속도값을 사용해 각속도 계산
 		// w = r x v / (abs(r) * abs(r))
 		// 옵션이 활성화된 시점에 1번만 했어야함
 		AngularVelocity = FVector3::CrossProduct(Location, Velocity);
@@ -265,76 +265,73 @@ public:
 
 	FORCEINLINE FVector3 GetAngularVelocity() { return AngularVelocity; }
 };
-int UBall::TotalNumBalls = 0; // 0으로 초기화(이후 생성자에서 1 증가, 소멸자에서 1 감소)
+int	 UBall::TotalNumBalls = 0; // 0으로 초기화(이후 생성자에서 1 증가, 소멸자에서 1 감소)
 bool UBall::bApplyGravity = true;
-
 
 #pragma region Primitive Vertex Data
 /**********************************************
-*              Primitive Vertex Data
-**********************************************/
+ *              Primitive Vertex Data
+ **********************************************/
 
-//삼각형 하드코딩
-FVertexSimple triangle_vertices[] =
-{
-	{ 0.f,  1.f, 0.f,   1.f, 0.f, 0.f, 1.f},    //TOP Vertex (red)
-	{ 1.f, -1.f, 0.f,   0.f, 1.f, 0.f, 1.f},    //Bottom-right vertex (green)
-	{-1.f, -1.f, 0.f,   0.f, 0.f, 1.f, 1.f}     // Bottom-left vertex (blue)
+// 삼각형 하드코딩
+FVertexSimple triangle_vertices[] = {
+	{ 0.f, 1.f, 0.f, 1.f, 0.f, 0.f, 1.f },	// TOP Vertex (red)
+	{ 1.f, -1.f, 0.f, 0.f, 1.f, 0.f, 1.f }, // Bottom-right vertex (green)
+	{ -1.f, -1.f, 0.f, 0.f, 0.f, 1.f, 1.f } // Bottom-left vertex (blue)
 };
 
-//큐브 하드코딩
-FVertexSimple cube_vertices[] =
-{
+// 큐브 하드코딩
+FVertexSimple cube_vertices[] = {
 	// Front face (Z+)
-	{ -0.5f, -0.5f,  0.5f,  1.0f, 0.0f, 0.0f, 1.0f }, // Bottom-left (red)
-	{ -0.5f,  0.5f,  0.5f,  1.0f, 1.0f, 0.0f, 1.0f }, // Top-left (yellow)
-	{  0.5f, -0.5f,  0.5f,  0.0f, 1.0f, 0.0f, 1.0f }, // Bottom-right (green)
-	{ -0.5f,  0.5f,  0.5f,  1.0f, 1.0f, 0.0f, 1.0f }, // Top-left (yellow)
-	{  0.5f,  0.5f,  0.5f,  0.0f, 0.0f, 1.0f, 1.0f }, // Top-right (blue)
-	{  0.5f, -0.5f,  0.5f,  0.0f, 1.0f, 0.0f, 1.0f }, // Bottom-right (green)
+	{ -0.5f, -0.5f, 0.5f, 1.0f, 0.0f, 0.0f, 1.0f }, // Bottom-left (red)
+	{ -0.5f, 0.5f, 0.5f, 1.0f, 1.0f, 0.0f, 1.0f },	// Top-left (yellow)
+	{ 0.5f, -0.5f, 0.5f, 0.0f, 1.0f, 0.0f, 1.0f },	// Bottom-right (green)
+	{ -0.5f, 0.5f, 0.5f, 1.0f, 1.0f, 0.0f, 1.0f },	// Top-left (yellow)
+	{ 0.5f, 0.5f, 0.5f, 0.0f, 0.0f, 1.0f, 1.0f },	// Top-right (blue)
+	{ 0.5f, -0.5f, 0.5f, 0.0f, 1.0f, 0.0f, 1.0f },	// Bottom-right (green)
 
 	// Back face (Z-)
-	{ -0.5f, -0.5f, -0.5f,  0.0f, 1.0f, 1.0f, 1.0f }, // Bottom-left (cyan)
-	{  0.5f, -0.5f, -0.5f,  1.0f, 0.0f, 1.0f, 1.0f }, // Bottom-right (magenta)
-	{ -0.5f,  0.5f, -0.5f,  0.0f, 0.0f, 1.0f, 1.0f }, // Top-left (blue)
-	{ -0.5f,  0.5f, -0.5f,  0.0f, 0.0f, 1.0f, 1.0f }, // Top-left (blue)
-	{  0.5f, -0.5f, -0.5f,  1.0f, 0.0f, 1.0f, 1.0f }, // Bottom-right (magenta)
-	{  0.5f,  0.5f, -0.5f,  1.0f, 1.0f, 0.0f, 1.0f }, // Top-right (yellow)
+	{ -0.5f, -0.5f, -0.5f, 0.0f, 1.0f, 1.0f, 1.0f }, // Bottom-left (cyan)
+	{ 0.5f, -0.5f, -0.5f, 1.0f, 0.0f, 1.0f, 1.0f },	 // Bottom-right (magenta)
+	{ -0.5f, 0.5f, -0.5f, 0.0f, 0.0f, 1.0f, 1.0f },	 // Top-left (blue)
+	{ -0.5f, 0.5f, -0.5f, 0.0f, 0.0f, 1.0f, 1.0f },	 // Top-left (blue)
+	{ 0.5f, -0.5f, -0.5f, 1.0f, 0.0f, 1.0f, 1.0f },	 // Bottom-right (magenta)
+	{ 0.5f, 0.5f, -0.5f, 1.0f, 1.0f, 0.0f, 1.0f },	 // Top-right (yellow)
 
 	// Left face (X-)
-	{ -0.5f, -0.5f, -0.5f,  1.0f, 0.0f, 1.0f, 1.0f }, // Bottom-left (purple)
-	{ -0.5f,  0.5f, -0.5f,  0.0f, 0.0f, 1.0f, 1.0f }, // Top-left (blue)
-	{ -0.5f, -0.5f,  0.5f,  0.0f, 1.0f, 0.0f, 1.0f }, // Bottom-right (green)
-	{ -0.5f,  0.5f, -0.5f,  0.0f, 0.0f, 1.0f, 1.0f }, // Top-left (blue)
-	{ -0.5f,  0.5f,  0.5f,  1.0f, 1.0f, 0.0f, 1.0f }, // Top-right (yellow)
-	{ -0.5f, -0.5f,  0.5f,  0.0f, 1.0f, 0.0f, 1.0f }, // Bottom-right (green)
+	{ -0.5f, -0.5f, -0.5f, 1.0f, 0.0f, 1.0f, 1.0f }, // Bottom-left (purple)
+	{ -0.5f, 0.5f, -0.5f, 0.0f, 0.0f, 1.0f, 1.0f },	 // Top-left (blue)
+	{ -0.5f, -0.5f, 0.5f, 0.0f, 1.0f, 0.0f, 1.0f },	 // Bottom-right (green)
+	{ -0.5f, 0.5f, -0.5f, 0.0f, 0.0f, 1.0f, 1.0f },	 // Top-left (blue)
+	{ -0.5f, 0.5f, 0.5f, 1.0f, 1.0f, 0.0f, 1.0f },	 // Top-right (yellow)
+	{ -0.5f, -0.5f, 0.5f, 0.0f, 1.0f, 0.0f, 1.0f },	 // Bottom-right (green)
 
 	// Right face (X+)
-	{  0.5f, -0.5f, -0.5f,  1.0f, 0.5f, 0.0f, 1.0f }, // Bottom-left (orange)
-	{  0.5f, -0.5f,  0.5f,  0.5f, 0.5f, 0.5f, 1.0f }, // Bottom-right (gray)
-	{  0.5f,  0.5f, -0.5f,  0.5f, 0.0f, 0.5f, 1.0f }, // Top-left (purple)
-	{  0.5f,  0.5f, -0.5f,  0.5f, 0.0f, 0.5f, 1.0f }, // Top-left (purple)
-	{  0.5f, -0.5f,  0.5f,  0.5f, 0.5f, 0.5f, 1.0f }, // Bottom-right (gray)
-	{  0.5f,  0.5f,  0.5f,  0.0f, 0.0f, 0.5f, 1.0f }, // Top-right (dark blue)
+	{ 0.5f, -0.5f, -0.5f, 1.0f, 0.5f, 0.0f, 1.0f }, // Bottom-left (orange)
+	{ 0.5f, -0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 1.0f },	// Bottom-right (gray)
+	{ 0.5f, 0.5f, -0.5f, 0.5f, 0.0f, 0.5f, 1.0f },	// Top-left (purple)
+	{ 0.5f, 0.5f, -0.5f, 0.5f, 0.0f, 0.5f, 1.0f },	// Top-left (purple)
+	{ 0.5f, -0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 1.0f },	// Bottom-right (gray)
+	{ 0.5f, 0.5f, 0.5f, 0.0f, 0.0f, 0.5f, 1.0f },	// Top-right (dark blue)
 
 	// Top face (Y+)
-	{ -0.5f,  0.5f, -0.5f,  0.0f, 1.0f, 0.5f, 1.0f }, // Bottom-left (light green)
-	{ -0.5f,  0.5f,  0.5f,  0.0f, 0.5f, 1.0f, 1.0f }, // Top-left (cyan)
-	{  0.5f,  0.5f, -0.5f,  0.5f, 1.0f, 1.0f, 1.0f }, // Bottom-right (white)
-	{ -0.5f,  0.5f,  0.5f,  0.0f, 0.5f, 1.0f, 1.0f }, // Top-left (cyan)
-	{  0.5f,  0.5f,  0.5f,  0.5f, 0.5f, 0.0f, 1.0f }, // Top-right (brown)
-	{  0.5f,  0.5f, -0.5f,  0.5f, 1.0f, 1.0f, 1.0f }, // Bottom-right (white)
+	{ -0.5f, 0.5f, -0.5f, 0.0f, 1.0f, 0.5f, 1.0f }, // Bottom-left (light green)
+	{ -0.5f, 0.5f, 0.5f, 0.0f, 0.5f, 1.0f, 1.0f },	// Top-left (cyan)
+	{ 0.5f, 0.5f, -0.5f, 0.5f, 1.0f, 1.0f, 1.0f },	// Bottom-right (white)
+	{ -0.5f, 0.5f, 0.5f, 0.0f, 0.5f, 1.0f, 1.0f },	// Top-left (cyan)
+	{ 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.0f, 1.0f },	// Top-right (brown)
+	{ 0.5f, 0.5f, -0.5f, 0.5f, 1.0f, 1.0f, 1.0f },	// Bottom-right (white)
 
 	// Bottom face (Y-)
-	{ -0.5f, -0.5f, -0.5f,  0.5f, 0.5f, 0.0f, 1.0f }, // Bottom-left (brown)
-	{ -0.5f, -0.5f,  0.5f,  1.0f, 0.0f, 0.0f, 1.0f }, // Top-left (red)
-	{  0.5f, -0.5f, -0.5f,  1.0f, 0.0f, 0.5f, 1.0f }, // Bottom-right (purple)
-	{ -0.5f, -0.5f,  0.5f,  1.0f, 0.0f, 0.0f, 1.0f }, // Top-left (red)
-	{  0.5f, -0.5f,  0.5f,  0.0f, 1.0f, 0.0f, 1.0f }, // Top-right (green)
-	{  0.5f, -0.5f, -0.5f,  1.0f, 0.0f, 0.5f, 1.0f }, // Bottom-right (purple)
+	{ -0.5f, -0.5f, -0.5f, 0.5f, 0.5f, 0.0f, 1.0f }, // Bottom-left (brown)
+	{ -0.5f, -0.5f, 0.5f, 1.0f, 0.0f, 0.0f, 1.0f },	 // Top-left (red)
+	{ 0.5f, -0.5f, -0.5f, 1.0f, 0.0f, 0.5f, 1.0f },	 // Bottom-right (purple)
+	{ -0.5f, -0.5f, 0.5f, 1.0f, 0.0f, 0.0f, 1.0f },	 // Top-left (red)
+	{ 0.5f, -0.5f, 0.5f, 0.0f, 1.0f, 0.0f, 1.0f },	 // Top-right (green)
+	{ 0.5f, -0.5f, -0.5f, 1.0f, 0.0f, 0.5f, 1.0f },	 // Bottom-right (purple)
 };
 
-//구는 헤더파일로 대체
+// 구는 헤더파일로 대체
 #include "Sphere.h"
 
 #pragma endregion
@@ -374,7 +371,7 @@ public:
 	// 스왑체인의 백 버퍼와 프론트 버퍼를 교체하여 화면에 출력
 	void SwapBuffer()
 	{
-		SwapChain->Present(1, 0);  // 1: VSync 활성화
+		SwapChain->Present(1, 0); // 1: VSync 활성화
 	}
 
 	/******************************************
@@ -390,24 +387,24 @@ public:
 				"vs_5_0", 0, 0, &vertexShaderCSO, nullptr);
 
 		Device->CreateVertexShader(vertexShaderCSO->GetBufferPointer(), vertexShaderCSO->GetBufferSize(), nullptr,
-			OUT &SimpleVertexShader);
+			OUT & SimpleVertexShader);
 
 		D3DCompileFromFile(L"ShaderW0.hlsl", nullptr, nullptr, "mainPS",
 			"ps_5_0", 0, 0, &pixelShaderCSO, nullptr);
 
 		Device->CreatePixelShader(pixelShaderCSO->GetBufferPointer(), pixelShaderCSO->GetBufferSize(), nullptr,
-			OUT &SimplePixelShader);
+			OUT & SimplePixelShader);
 
 		D3D11_INPUT_ELEMENT_DESC layout[] = {
 			{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0,
-			  D3D11_INPUT_PER_VERTEX_DATA, 0 },
+				D3D11_INPUT_PER_VERTEX_DATA, 0 },
 			{ "Color", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12,
-			  D3D11_INPUT_PER_VERTEX_DATA, 0 }
+				D3D11_INPUT_PER_VERTEX_DATA, 0 }
 		};
 
 		Device->CreateInputLayout(
 			layout, ARRAYSIZE(layout), vertexShaderCSO->GetBufferPointer(),
-			vertexShaderCSO->GetBufferSize(), OUT &SimpleInputLayout);
+			vertexShaderCSO->GetBufferSize(), OUT & SimpleInputLayout);
 
 		Stride = sizeof(FVertexSimple);
 
@@ -483,7 +480,7 @@ public:
 	{
 		D3D11_BUFFER_DESC vertexbufferdesc = {};
 		vertexbufferdesc.ByteWidth = byteWidth;
-		vertexbufferdesc.Usage = D3D11_USAGE_IMMUTABLE;  // will never be
+		vertexbufferdesc.Usage = D3D11_USAGE_IMMUTABLE; // will never be
 		// updated
 		vertexbufferdesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
 
@@ -491,7 +488,7 @@ public:
 
 		ID3D11Buffer* vertexBuffer;
 		Device->CreateBuffer(&vertexbufferdesc, &vertexbufferSRD,
-			OUT &vertexBuffer);
+			OUT & vertexBuffer);
 
 		return vertexBuffer;
 	}
@@ -506,8 +503,8 @@ public:
 	 ******************************************/
 	struct FConstants
 	{
-		FVector3 Offset;	// 공 위치 오프셋
-		float Scale;		// 공의 크기
+		FVector3 Offset; // 공 위치 오프셋
+		float	 Scale;	 // 공의 크기
 	};
 
 	void CreateConstantBuffer()
@@ -520,7 +517,7 @@ public:
 		constantbufferdesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
 		constantbufferdesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
 
-		Device->CreateBuffer(&constantbufferdesc, nullptr, OUT &ConstantBuffer);
+		Device->CreateBuffer(&constantbufferdesc, nullptr, OUT & ConstantBuffer);
 	}
 
 	void ReleaseConstantBuffer()
@@ -534,9 +531,9 @@ public:
 
 	// 상수 버퍼 갱신 함수
 	/*
-	* UBall의 크기 정보 처리 필요 -> constant buffer를 16바이트로 맞추기 위해 억지로 넣은 Pad 변수를 활용
-	* - Scale값을 넘겨 VertexShader에서 크기를 처리
-	*/
+	 * UBall의 크기 정보 처리 필요 -> constant buffer를 16바이트로 맞추기 위해 억지로 넣은 Pad 변수를 활용
+	 * - Scale값을 넘겨 VertexShader에서 크기를 처리
+	 */
 	void UpdateConstant(FVector3 Offset, float Scale)
 	{
 		if (ConstantBuffer)
@@ -544,7 +541,7 @@ public:
 			D3D11_MAPPED_SUBRESOURCE constantBufferMSR;
 			DeviceContext->Map(
 				ConstantBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0,
-				&constantBufferMSR);  // update constant buffer every frame
+				&constantBufferMSR); // update constant buffer every frame
 			FConstants* constants = (FConstants*)constantBufferMSR.pData;
 			{
 				constants->Offset = Offset;
@@ -554,10 +551,10 @@ public:
 		}
 	}
 
-	FORCEINLINE ID3D11Device* GetDevice() const { return Device; }
+	FORCEINLINE ID3D11Device*		 GetDevice() const { return Device; }
 	FORCEINLINE ID3D11DeviceContext* GetDeviceContext() const { return DeviceContext; }
 
-// 외부에서 사용되지 않는 함수들 모음
+	// 외부에서 사용되지 않는 함수들 모음
 protected:
 	void CreateDeviceAndSwapChain(HWND hWindow)
 	{
@@ -566,17 +563,17 @@ protected:
 
 		// 스왑 체인 설정 구조체 초기화
 		DXGI_SWAP_CHAIN_DESC swapChainDesc = {};
-		swapChainDesc.BufferDesc.Width = 0;							// 창 크기에 맞게 자동으로 설정
-		swapChainDesc.BufferDesc.Height = 0;						// 창 크기에 맞게 자동으로 설정
+		swapChainDesc.BufferDesc.Width = 0;	 // 창 크기에 맞게 자동으로 설정
+		swapChainDesc.BufferDesc.Height = 0; // 창 크기에 맞게 자동으로 설정
 		swapChainDesc.BufferDesc.Format =
-			DXGI_FORMAT_B8G8R8A8_UNORM;								// 색상 포맷
-		swapChainDesc.SampleDesc.Count = 1;							// 멀티 샘플링 비활성화
+			DXGI_FORMAT_B8G8R8A8_UNORM;		// 색상 포맷
+		swapChainDesc.SampleDesc.Count = 1; // 멀티 샘플링 비활성화
 		swapChainDesc.BufferUsage =
-			DXGI_USAGE_RENDER_TARGET_OUTPUT;						// 렌더 타겟으로 사용
-		swapChainDesc.BufferCount = 2;								// 더블 버퍼링
-		swapChainDesc.OutputWindow = hWindow;						// 렌더링할 창 핸들
-		swapChainDesc.Windowed = TRUE;								// 창 모드
-		swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;	// 스왑 방식
+			DXGI_USAGE_RENDER_TARGET_OUTPUT;					  // 렌더 타겟으로 사용
+		swapChainDesc.BufferCount = 2;							  // 더블 버퍼링
+		swapChainDesc.OutputWindow = hWindow;					  // 렌더링할 창 핸들
+		swapChainDesc.Windowed = TRUE;							  // 창 모드
+		swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD; // 스왑 방식
 
 		// Direct3D 장치와 스왑 체인 생성
 		D3D11CreateDeviceAndSwapChain(
@@ -607,8 +604,8 @@ protected:
 
 		// 렌더 타겟 뷰 설정
 		D3D11_RENDER_TARGET_VIEW_DESC frameBufferRTVDesc = {};
-		frameBufferRTVDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM_SRGB;		// 색상 포맷
-		frameBufferRTVDesc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D;	// 2D 텍스처
+		frameBufferRTVDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM_SRGB;	  // 색상 포맷
+		frameBufferRTVDesc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D; // 2D 텍스처
 
 		Device->CreateRenderTargetView(FrameBuffer, &frameBufferRTVDesc, OUT & FrameBufferRTV);
 	}
@@ -617,8 +614,8 @@ protected:
 	void CreateRasterizerState()
 	{
 		D3D11_RASTERIZER_DESC rasterizerdesc = {};
-		rasterizerdesc.FillMode = D3D11_FILL_SOLID;  // 채우기 모드
-		rasterizerdesc.CullMode = D3D11_CULL_BACK;   // 백 페이스 컬링
+		rasterizerdesc.FillMode = D3D11_FILL_SOLID; // 채우기 모드
+		rasterizerdesc.CullMode = D3D11_CULL_BACK;	// 백 페이스 컬링
 
 		Device->CreateRasterizerState(&rasterizerdesc, OUT & RasterizerState);
 	}
@@ -628,7 +625,7 @@ protected:
 	{
 		if (DeviceContext)
 		{
-			DeviceContext->Flush();  // 남아있는 gpu 명령 실행
+			DeviceContext->Flush(); // 남아있는 gpu 명령 실행
 		}
 
 		if (SwapChain)
@@ -677,49 +674,51 @@ protected:
 protected:
 	// Direct3D 장치(Device)와 장치 컨텍스트(Device Context) 및 스왑
 	// 체인(SwapChain) 관리를 위한 포인터
-	ID3D11Device*			Device = nullptr;									// GPU와 통신하기 위한 Direct3D 장치
-	ID3D11DeviceContext*	DeviceContext = nullptr;							// GPU 명령 실행을 담당할 컨텍스트
-	IDXGISwapChain*			SwapChain = nullptr;								// 프레임 버퍼 교체에 사용되는 스왑 체인
+	ID3D11Device*		 Device = nullptr;		  // GPU와 통신하기 위한 Direct3D 장치
+	ID3D11DeviceContext* DeviceContext = nullptr; // GPU 명령 실행을 담당할 컨텍스트
+	IDXGISwapChain*		 SwapChain = nullptr;	  // 프레임 버퍼 교체에 사용되는 스왑 체인
 
 	// 렌더링에 필요한 리소스 및 상태를 관리하기 위한 변수
-	ID3D11Texture2D*		FrameBuffer = nullptr;								// 화면 출력용 텍스쳐
-	ID3D11RenderTargetView* FrameBufferRTV = nullptr;							// 텍스쳐를 렌더 타겟으로 사용하는 뷰
-	ID3D11RasterizerState*	RasterizerState = nullptr;							// 래스터라이저 상태(컬링, 채우기 모드 정의)
-	ID3D11Buffer*			ConstantBuffer = nullptr;							// 쉐이더에 데이터를 전달하기 위한 상수 버퍼
+	ID3D11Texture2D*		FrameBuffer = nullptr;	   // 화면 출력용 텍스쳐
+	ID3D11RenderTargetView* FrameBufferRTV = nullptr;  // 텍스쳐를 렌더 타겟으로 사용하는 뷰
+	ID3D11RasterizerState*	RasterizerState = nullptr; // 래스터라이저 상태(컬링, 채우기 모드 정의)
+	ID3D11Buffer*			ConstantBuffer = nullptr;  // 쉐이더에 데이터를 전달하기 위한 상수 버퍼
 
-	FLOAT					ClearColor[4] = { 0.025f, 0.025f, 0.025f, 1.f };	// 화면을 초기화(clear) 할때 사용할 색상 RGBA
-	D3D11_VIEWPORT			ViewportInfo;										// 렌더링 영역 정의하는 뷰포트 정보
+	FLOAT		   ClearColor[4] = { 0.025f, 0.025f, 0.025f, 1.f }; // 화면을 초기화(clear) 할때 사용할 색상 RGBA
+	D3D11_VIEWPORT ViewportInfo;									// 렌더링 영역 정의하는 뷰포트 정보
 
 	ID3D11VertexShader* SimpleVertexShader;
-	ID3D11PixelShader* SimplePixelShader;
-	ID3D11InputLayout* SimpleInputLayout;
-	unsigned int Stride;
+	ID3D11PixelShader*	SimplePixelShader;
+	ID3D11InputLayout*	SimpleInputLayout;
+	unsigned int		Stride;
 };
 #pragma endregion
 
 // UBall::TotalNumBalls > LastNumberOfBalls (사용자가 입력한 공의 개수가 현재 배열에 있는 공의 개수보다 적은 경우, 공 삭제)
 void RemoveBalls(int diff)
 {
-	if (UBall::TotalNumBalls - diff <= 0) return; //만약 diff개 만큼 삭제 후 남은 공의 개수가 0 이하라면 삭제 불가능(조건 위반)
+	if (UBall::TotalNumBalls - diff <= 0)
+		return; // 만약 diff개 만큼 삭제 후 남은 공의 개수가 0 이하라면 삭제 불가능(조건 위반)
 
 	int CacheTotalNumBalls;
 
 	for (int i = 0; i < diff; ++i) // diff개 공을 해제해야함.
 	{
 		CacheTotalNumBalls = UBall::TotalNumBalls; // 현재 배열의 길이 캐싱
-		//삭제할 공 index 선정
+		// 삭제할 공 index 선정
 		int idx = rand() % (UBall::TotalNumBalls); // 현재 배열에서 삭제할 원소 하나 선택.
-		
-		//해당 원소 할당 해제 (가상함수로 소멸자 선언했기 때문에 적절한 소멸자가 호출됨)
-		delete PrimitiveList[idx]; //객체 즉시 소멸
 
-		UPrimitive** NewPrimitiveList = new UPrimitive * [UBall::TotalNumBalls]; //감소된 갯수만큼의 동적 배열 할당.
+		// 해당 원소 할당 해제 (가상함수로 소멸자 선언했기 때문에 적절한 소멸자가 호출됨)
+		delete PrimitiveList[idx]; // 객체 즉시 소멸
 
-		//copy 작업 수행
+		UPrimitive** NewPrimitiveList = new UPrimitive*[UBall::TotalNumBalls]; // 감소된 갯수만큼의 동적 배열 할당.
+
+		// copy 작업 수행
 		int NewIdx = 0;
 		for (int j = 0; j < CacheTotalNumBalls; ++j)
 		{
-			if (j == idx) continue;
+			if (j == idx)
+				continue;
 			NewPrimitiveList[NewIdx] = PrimitiveList[j];
 			++NewIdx;
 		}
@@ -732,12 +731,13 @@ void RemoveBalls(int diff)
 // LastNumberOfBalls > UBall::TotalNumBalls (사용자가 입력한 공의 개수가 현재 배열에 있는 공의 개수보다 많은 경우, 공 추가)
 void AddBalls(int diff)
 {
-	//기존 배열에 diff개 만큼의 공을 추가로 할당해야함.
-	if (diff <= 0) return;
+	// 기존 배열에 diff개 만큼의 공을 추가로 할당해야함.
+	if (diff <= 0)
+		return;
 
 	UPrimitive** NewPrimitiveList = new UPrimitive*[UBall::TotalNumBalls + diff];
 
-	int PrevNumberOfBalls = UBall::TotalNumBalls; //TotalNumBalls 값 복사
+	int PrevNumberOfBalls = UBall::TotalNumBalls; // TotalNumBalls 값 복사
 
 	for (int i = 0; i < PrevNumberOfBalls; ++i)
 	{
@@ -757,54 +757,55 @@ void AddBalls(int diff)
 // 두 공의 충돌 여부 판단 및 탄성 충돌로 인해 새로 생긴 속도를 게산하는 함수
 void CheckElasticCollision()
 {
-	//두 공을 각각 보면서 충돌이 발생했는지 체크
-	for (int i = 0; i < UBall::TotalNumBalls; ++i) for (int j = i + 1; j < UBall::TotalNumBalls; ++j)
-	{
-		UBall* Ball1 = static_cast<UBall*>(PrimitiveList[i]);
-		UBall* Ball2 = static_cast<UBall*>(PrimitiveList[j]);
-
-		//두 공의 중심 거리의 제곱 (연산 편의성)
-		float DistanceSquare = (Ball1->Location - Ball2->Location).LengthSquare();
-		if (DistanceSquare > (Ball1->Radius + Ball2->Radius) * (Ball1->Radius + Ball2->Radius)) //두 구의 반지름의 합 보다 거리가 크다면 두 원은 떨어져 있는 것이다.
+	// 두 공을 각각 보면서 충돌이 발생했는지 체크
+	for (int i = 0; i < UBall::TotalNumBalls; ++i)
+		for (int j = i + 1; j < UBall::TotalNumBalls; ++j)
 		{
-			continue; //충돌하지 않음.
+			UBall* Ball1 = static_cast<UBall*>(PrimitiveList[i]);
+			UBall* Ball2 = static_cast<UBall*>(PrimitiveList[j]);
+
+			// 두 공의 중심 거리의 제곱 (연산 편의성)
+			float DistanceSquare = (Ball1->Location - Ball2->Location).LengthSquare();
+			if (DistanceSquare > (Ball1->Radius + Ball2->Radius) * (Ball1->Radius + Ball2->Radius)) // 두 구의 반지름의 합 보다 거리가 크다면 두 원은 떨어져 있는 것이다.
+			{
+				continue; // 충돌하지 않음.
+			}
+
+			// Ball2->Ball1 단위 벡터
+			FVector3 Normal = Ball1->Location - Ball2->Location;
+			Normal.Normalize();
+
+			// 두 공이 겹치는 부분의 절반씩 밀어내기 (겹침 현상 해결)
+			float Distance = sqrtf(DistanceSquare);
+			float Overlap = ((Ball1->Radius + Ball2->Radius) - Distance) / 2.f;
+
+			// 각 공을 반대방향으로 밀치기
+			Ball1->Location += Normal * Overlap;
+			Ball2->Location -= Normal * Overlap;
+
+			// 1차원 뉴턴 충돌 계산을 위한 각 공의 속도를 단위벡터로 투영하여 1차원 상의 속도 구하기
+			float v1 = FVector3::DotProduct(Ball1->Velocity, Normal);
+			float v2 = FVector3::DotProduct(Ball2->Velocity, Normal);
+
+			// 각 공의 질량
+			float m1 = Ball1->Mass;
+			float m2 = Ball2->Mass;
+
+			// 새로운 속도 계산
+			float NewVelocity1 = ((m1 - m2) * v1 + 2 * m2 * v2) / (m1 + m2);
+			float NewVelocity2 = ((m2 - m1) * v2 + 2 * m1 * v1) / (m1 + m2);
+
+			// 법선 방향의 속도만 수정(법선 방향)
+			/*
+			 * 왜 v1, v2을 빼야하는가?
+			 * - Ball->Velocity는 Normal(법선) 벡터 와 Tangent(접선) 벡터의 합으로 이루어져있음
+			 * - 따라서 Ball->Velocity = v1 * Normal + Tangent임.
+			 * - 근데 새로 계산된 속도를 법선 방향에 적용해야함.
+			 * - 따라서 v1 * Normal값을 제거하기 위해 NewVelocity1 - v1을 대입
+			 */
+			Ball1->Velocity += Normal * (NewVelocity1 - v1);
+			Ball2->Velocity += Normal * (NewVelocity2 - v2);
 		}
-
-		// Ball2->Ball1 단위 벡터
-		FVector3 Normal = Ball1->Location - Ball2->Location;
-		Normal.Normalize();
-
-		// 두 공이 겹치는 부분의 절반씩 밀어내기 (겹침 현상 해결)
-		float Distance = sqrtf(DistanceSquare);
-		float Overlap = ((Ball1->Radius + Ball2->Radius) - Distance) / 2.f;
-
-		//각 공을 반대방향으로 밀치기
-		Ball1->Location += Normal * Overlap;
-		Ball2->Location -= Normal * Overlap;
-
-		// 1차원 뉴턴 충돌 계산을 위한 각 공의 속도를 단위벡터로 투영하여 1차원 상의 속도 구하기
-		float v1 = FVector3::DotProduct(Ball1->Velocity, Normal);
-		float v2 = FVector3::DotProduct(Ball2->Velocity, Normal);
-		
-		//각 공의 질량
-		float m1 = Ball1->Mass;
-		float m2 = Ball2->Mass;
-
-		// 새로운 속도 계산
-		float NewVelocity1 = ((m1 - m2) * v1 + 2 * m2 * v2) / (m1 + m2);
-		float NewVelocity2 = ((m2 - m1) * v2 + 2 * m1 * v1) / (m1 + m2);
-
-		// 법선 방향의 속도만 수정(법선 방향)
-		/*
-		* 왜 v1, v2을 빼야하는가?
-		* - Ball->Velocity는 Normal(법선) 벡터 와 Tangent(접선) 벡터의 합으로 이루어져있음
-		* - 따라서 Ball->Velocity = v1 * Normal + Tangent임.
-		* - 근데 새로 계산된 속도를 법선 방향에 적용해야함.
-		* - 따라서 v1 * Normal값을 제거하기 위해 NewVelocity1 - v1을 대입
-		*/
-		Ball1->Velocity += Normal * (NewVelocity1 - v1);
-		Ball2->Velocity += Normal * (NewVelocity2 - v2);
-	}
 }
 
 extern LRESULT ImGui_ImplWin32_WndProcHandler(HWND hwnd, UINT msg,
@@ -822,12 +823,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 	switch (message)
 	{
-	case WM_DESTROY:
-		// Signal that the app should quit
-		PostQuitMessage(0);
-		break;
-	default:
-		return DefWindowProc(hWnd, message, wParam, lParam);
+		case WM_DESTROY:
+			// Signal that the app should quit
+			PostQuitMessage(0);
+			break;
+		default:
+			return DefWindowProc(hWnd, message, wParam, lParam);
 	}
 	return 0;
 }
@@ -867,7 +868,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	// 상수함수 생성
 	renderer.CreateConstantBuffer();
 
-
 	// ImGui 생성 및 초기화
 	IMGUI_CHECKVERSION();
 	ImGui::CreateContext();
@@ -878,12 +878,12 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	// Renderer와 Shader 생성 이후에 Vertex Buffer 생성
 	UINT numVerticesSphere = sizeof(sphere_vertices) / sizeof(FVertexSimple);
 
-	//Vertex Buffer 선언(sphere)
+	// Vertex Buffer 선언(sphere)
 	ID3D11Buffer* vertexBufferSphere = renderer.CreateVertexBuffer(sphere_vertices, sizeof(sphere_vertices));
 
 	// FPS 제한을 위한 설정 (60FPS)
-	const int targetFPS = 60;
-	const double targetFrameTime = 1000.0 / targetFPS;  // 한 프레임의 목표 시간(밀리초 단위)
+	const int	 targetFPS = 60;
+	const double targetFrameTime = 1000.0 / targetFPS; // 한 프레임의 목표 시간(밀리초 단위)
 
 	// 고성능 타이머 초기화
 	LARGE_INTEGER frequency;
@@ -895,17 +895,17 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	// 경과시간(End - Start)
 	double elapsedTime = 0.0;
 
-	//초기 1개의 구체 생성
+	// 초기 1개의 구체 생성
 	UBall* initBall = new UBall();
 
 	// 생성된 공을 PrimitiveList에서 가리키게 지정.
-	PrimitiveList = new UPrimitive * [UBall::TotalNumBalls];	
+	PrimitiveList = new UPrimitive*[UBall::TotalNumBalls];
 	PrimitiveList[0] = initBall;
-	
-	//더이상 사용하지않는 initBall 포인터 변수 처리
+
+	// 더이상 사용하지않는 initBall 포인터 변수 처리
 	initBall = nullptr;
 
-	//이전 프레임의 공의 개수를 보관하는 변수
+	// 이전 프레임의 공의 개수를 보관하는 변수
 	int LastNumberOfBalls = UBall::TotalNumBalls;
 
 	bool bApplyAngularVelocity = false;
@@ -920,8 +920,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		MSG msg;
 		// 처리할 메시지가 더 이상 없을 때 까지 수행
 		while (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE))
-		{                            // 키 입력 메시지를 번역
-			TranslateMessage(&msg);  // 메세지를 적절한 윈도우 프로시저에 전달,
+		{							// 키 입력 메시지를 번역
+			TranslateMessage(&msg); // 메세지를 적절한 윈도우 프로시저에 전달,
 
 			// 메시지가 위에서 등록한 WndProc 으로 전달됨
 			DispatchMessage(&msg);
@@ -933,10 +933,10 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 			}
 		}
 
-		/* 
-		* 이 부분에서 TotalNumBalls 개수를 체크해서 객체 할당 또는 해제 진행
-		*/
-		//UBall 클래스의 생성자와 소멸자에서 TotalNumBalls 관리. 따로 신경X
+		/*
+		 * 이 부분에서 TotalNumBalls 개수를 체크해서 객체 할당 또는 해제 진행
+		 */
+		// UBall 클래스의 생성자와 소멸자에서 TotalNumBalls 관리. 따로 신경X
 		if (LastNumberOfBalls < UBall::TotalNumBalls) // 사용자가 더 적은 개수의 공을 입력 -> 차이 만큼 공을 제거
 		{
 			RemoveBalls(UBall::TotalNumBalls - LastNumberOfBalls);
@@ -961,7 +961,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 			}
 		}
 
-		//충돌 검사 및 탄성 충돌
+		// 충돌 검사 및 탄성 충돌
 		CheckElasticCollision();
 
 		///////////////////////////////////////
@@ -990,7 +990,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		ImGui::Begin("Jungle Property Window");
 		//**********************IMGUI section Start**********************
 		ImGui::Text("Hello Jungle World!");
-		
+
 		ImGui::BeginDisabled(bApplyAngularVelocity);
 		ImGui::Checkbox("Gravity", &UBall::bApplyGravity);
 		ImGui::EndDisabled();
@@ -1001,9 +1001,10 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 		ImGui::InputInt("Number of Balls", &LastNumberOfBalls);
 		ImGui::Text("Krafton Tech Lab 01");
-		LastNumberOfBalls = max(LastNumberOfBalls, 1); //공의 개수가 1 이하로 떨어지지 않게 조절	
-		
-		for (int i = 0; i < UBall::TotalNumBalls; ++i){
+		LastNumberOfBalls = max(LastNumberOfBalls, 1); // 공의 개수가 1 이하로 떨어지지 않게 조절
+
+		for (int i = 0; i < UBall::TotalNumBalls; ++i)
+		{
 			ImGui::Text("Ball Info");
 			FVector3 AngularV = static_cast<UBall*>(PrimitiveList[i])->GetAngularVelocity();
 			ImGui::Text("AngularVelocity: (%f, %f, %f)", AngularV.GetX(), AngularV.GetY(), AngularV.GetZ());
@@ -1019,14 +1020,15 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		// 현재 화면에 보여지는 버퍼와 그리기 작업을 위한 버퍼를 서로 교환(double-buffering)
 		renderer.SwapBuffer();
 		///////////////////////////////////////
-		
+
 		do
 		{
 			Sleep(0);
 
 			QueryPerformanceCounter(&endTime);
 			elapsedTime = (endTime.QuadPart - startTime.QuadPart) * 1000.0 / frequency.QuadPart;
-		} while (elapsedTime < targetFrameTime);
+		}
+		while (elapsedTime < targetFrameTime);
 	}
 
 	// 여기에서 ImGui 소멸
@@ -1047,7 +1049,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 	// D3D11 소멸시키는 함수를 호출
 	renderer.Release();
-	
 
 	// 남은 Ball 객체 소멸
 	// delete를 할 때 마다 UBall::TotalNumBalls 값이 변하기 때문에 값을 복사해서 사용
