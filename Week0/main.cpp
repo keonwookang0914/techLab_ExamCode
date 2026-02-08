@@ -281,6 +281,7 @@ FVertexSimple triangle_vertices[] = {
 };
 
 // 큐브 하드코딩
+// Q. 모든 큐브 평면의 법선벡터가 큐브 안쪽을 가리킴(Direct3D11 왼손 좌표계 기준) -> 아마도 OpenGL 좌표계를 제시한것 같은데 면접에서 궁금한점 물어볼 때 물어봐야겠다.
 FVertexSimple cube_vertices[] = {
 	// Front face (Z+)
 	{ -0.5f, -0.5f, 0.5f, 1.0f, 0.0f, 0.0f, 1.0f }, // Bottom-left (red)
