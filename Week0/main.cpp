@@ -3,14 +3,18 @@
 #pragma comment(lib, "user32")
 #pragma comment(lib, "d3d11")
 #pragma comment(lib, "d3dcompiler")
+#pragma comment(lib, "dxguid.lib")
 
 #include <d3d11.h>
 #include <d3dcompiler.h>
+#include <string>
 
 #include "ImGui/imgui.h"
 #include "ImGui/imgui_impl_dx11.h"
 #include "ImGui/imgui_impl_win32.h"
 #include "ImGui/imgui_internal.h"
+
+#include "WICTextureLoader.h"
 
 // forward declarations
 class UPrimitive;
@@ -26,7 +30,8 @@ UPrimitive** PrimitiveList;
 struct FVertexSimple
 {
 	float x, y, z;	  // position
-	float r, g, b, a; // color
+	//float r, g, b, a; // color
+	float u, v; //UV
 };
 
 // 3차원 Vector 구조체
@@ -273,67 +278,73 @@ bool UBall::bApplyGravity = true;
  *              Primitive Vertex Data
  **********************************************/
 
-// 삼각형 하드코딩
+//// 삼각형 하드코딩
+//FVertexSimple triangle_vertices[] = {
+//	{ 0.f, 1.f, 0.f, 1.f, 0.f, 0.f, 1.f },	// TOP Vertex (red)
+//	{ 1.f, -1.f, 0.f, 0.f, 1.f, 0.f, 1.f }, // Bottom-right vertex (green)
+//	{ -1.f, -1.f, 0.f, 0.f, 0.f, 1.f, 1.f } // Bottom-left vertex (blue)
+//};
+
 FVertexSimple triangle_vertices[] = {
-	{ 0.f, 1.f, 0.f, 1.f, 0.f, 0.f, 1.f },	// TOP Vertex (red)
-	{ 1.f, -1.f, 0.f, 0.f, 1.f, 0.f, 1.f }, // Bottom-right vertex (green)
-	{ -1.f, -1.f, 0.f, 0.f, 0.f, 1.f, 1.f } // Bottom-left vertex (blue)
+	{ 0.f,  1.f, 0.f,  0.5f, 0.0f },	// TOP Vertex (red)
+	{ 1.f, -1.f, 0.f,  1.0f, 1.0f }, // Bottom-right vertex (green)
+	{-1.f, -1.f, 0.f,  0.0f, 1.0f } // Bottom-left vertex (blue)
 };
 
 // 큐브 하드코딩
 // Q. 모든 큐브 평면의 법선벡터가 큐브 안쪽을 가리킴(Direct3D11 왼손 좌표계 기준) -> 아마도 OpenGL 좌표계를 제시한것 같은데 면접에서 궁금한점 물어볼 때 물어봐야겠다.
-FVertexSimple cube_vertices[] = {
-	// Front face (Z+)
-	{ -0.5f, -0.5f, 0.5f, 1.0f, 0.0f, 0.0f, 1.0f }, // Bottom-left (red)
-	{ -0.5f, 0.5f, 0.5f, 1.0f, 1.0f, 0.0f, 1.0f },	// Top-left (yellow)
-	{ 0.5f, -0.5f, 0.5f, 0.0f, 1.0f, 0.0f, 1.0f },	// Bottom-right (green)
-	{ -0.5f, 0.5f, 0.5f, 1.0f, 1.0f, 0.0f, 1.0f },	// Top-left (yellow)
-	{ 0.5f, 0.5f, 0.5f, 0.0f, 0.0f, 1.0f, 1.0f },	// Top-right (blue)
-	{ 0.5f, -0.5f, 0.5f, 0.0f, 1.0f, 0.0f, 1.0f },	// Bottom-right (green)
-
-	// Back face (Z-)
-	{ -0.5f, -0.5f, -0.5f, 0.0f, 1.0f, 1.0f, 1.0f }, // Bottom-left (cyan)
-	{ 0.5f, -0.5f, -0.5f, 1.0f, 0.0f, 1.0f, 1.0f },	 // Bottom-right (magenta)
-	{ -0.5f, 0.5f, -0.5f, 0.0f, 0.0f, 1.0f, 1.0f },	 // Top-left (blue)
-	{ -0.5f, 0.5f, -0.5f, 0.0f, 0.0f, 1.0f, 1.0f },	 // Top-left (blue)
-	{ 0.5f, -0.5f, -0.5f, 1.0f, 0.0f, 1.0f, 1.0f },	 // Bottom-right (magenta)
-	{ 0.5f, 0.5f, -0.5f, 1.0f, 1.0f, 0.0f, 1.0f },	 // Top-right (yellow)
-
-	// Left face (X-)
-	{ -0.5f, -0.5f, -0.5f, 1.0f, 0.0f, 1.0f, 1.0f }, // Bottom-left (purple)
-	{ -0.5f, 0.5f, -0.5f, 0.0f, 0.0f, 1.0f, 1.0f },	 // Top-left (blue)
-	{ -0.5f, -0.5f, 0.5f, 0.0f, 1.0f, 0.0f, 1.0f },	 // Bottom-right (green)
-	{ -0.5f, 0.5f, -0.5f, 0.0f, 0.0f, 1.0f, 1.0f },	 // Top-left (blue)
-	{ -0.5f, 0.5f, 0.5f, 1.0f, 1.0f, 0.0f, 1.0f },	 // Top-right (yellow)
-	{ -0.5f, -0.5f, 0.5f, 0.0f, 1.0f, 0.0f, 1.0f },	 // Bottom-right (green)
-
-	// Right face (X+)
-	{ 0.5f, -0.5f, -0.5f, 1.0f, 0.5f, 0.0f, 1.0f }, // Bottom-left (orange)
-	{ 0.5f, -0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 1.0f },	// Bottom-right (gray)
-	{ 0.5f, 0.5f, -0.5f, 0.5f, 0.0f, 0.5f, 1.0f },	// Top-left (purple)
-	{ 0.5f, 0.5f, -0.5f, 0.5f, 0.0f, 0.5f, 1.0f },	// Top-left (purple)
-	{ 0.5f, -0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 1.0f },	// Bottom-right (gray)
-	{ 0.5f, 0.5f, 0.5f, 0.0f, 0.0f, 0.5f, 1.0f },	// Top-right (dark blue)
-
-	// Top face (Y+)
-	{ -0.5f, 0.5f, -0.5f, 0.0f, 1.0f, 0.5f, 1.0f }, // Bottom-left (light green)
-	{ -0.5f, 0.5f, 0.5f, 0.0f, 0.5f, 1.0f, 1.0f },	// Top-left (cyan)
-	{ 0.5f, 0.5f, -0.5f, 0.5f, 1.0f, 1.0f, 1.0f },	// Bottom-right (white)
-	{ -0.5f, 0.5f, 0.5f, 0.0f, 0.5f, 1.0f, 1.0f },	// Top-left (cyan)
-	{ 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.0f, 1.0f },	// Top-right (brown)
-	{ 0.5f, 0.5f, -0.5f, 0.5f, 1.0f, 1.0f, 1.0f },	// Bottom-right (white)
-
-	// Bottom face (Y-)
-	{ -0.5f, -0.5f, -0.5f, 0.5f, 0.5f, 0.0f, 1.0f }, // Bottom-left (brown)
-	{ -0.5f, -0.5f, 0.5f, 1.0f, 0.0f, 0.0f, 1.0f },	 // Top-left (red)
-	{ 0.5f, -0.5f, -0.5f, 1.0f, 0.0f, 0.5f, 1.0f },	 // Bottom-right (purple)
-	{ -0.5f, -0.5f, 0.5f, 1.0f, 0.0f, 0.0f, 1.0f },	 // Top-left (red)
-	{ 0.5f, -0.5f, 0.5f, 0.0f, 1.0f, 0.0f, 1.0f },	 // Top-right (green)
-	{ 0.5f, -0.5f, -0.5f, 1.0f, 0.0f, 0.5f, 1.0f },	 // Bottom-right (purple)
-};
+//FVertexSimple cube_vertices[] = {
+//	// Front face (Z+)
+//	{ -0.5f, -0.5f, 0.5f, 1.0f, 0.0f, 0.0f, 1.0f }, // Bottom-left (red)
+//	{ -0.5f, 0.5f, 0.5f, 1.0f, 1.0f, 0.0f, 1.0f },	// Top-left (yellow)
+//	{ 0.5f, -0.5f, 0.5f, 0.0f, 1.0f, 0.0f, 1.0f },	// Bottom-right (green)
+//	{ -0.5f, 0.5f, 0.5f, 1.0f, 1.0f, 0.0f, 1.0f },	// Top-left (yellow)
+//	{ 0.5f, 0.5f, 0.5f, 0.0f, 0.0f, 1.0f, 1.0f },	// Top-right (blue)
+//	{ 0.5f, -0.5f, 0.5f, 0.0f, 1.0f, 0.0f, 1.0f },	// Bottom-right (green)
+//
+//	// Back face (Z-)
+//	{ -0.5f, -0.5f, -0.5f, 0.0f, 1.0f, 1.0f, 1.0f }, // Bottom-left (cyan)
+//	{ 0.5f, -0.5f, -0.5f, 1.0f, 0.0f, 1.0f, 1.0f },	 // Bottom-right (magenta)
+//	{ -0.5f, 0.5f, -0.5f, 0.0f, 0.0f, 1.0f, 1.0f },	 // Top-left (blue)
+//	{ -0.5f, 0.5f, -0.5f, 0.0f, 0.0f, 1.0f, 1.0f },	 // Top-left (blue)
+//	{ 0.5f, -0.5f, -0.5f, 1.0f, 0.0f, 1.0f, 1.0f },	 // Bottom-right (magenta)
+//	{ 0.5f, 0.5f, -0.5f, 1.0f, 1.0f, 0.0f, 1.0f },	 // Top-right (yellow)
+//
+//	// Left face (X-)
+//	{ -0.5f, -0.5f, -0.5f, 1.0f, 0.0f, 1.0f, 1.0f }, // Bottom-left (purple)
+//	{ -0.5f, 0.5f, -0.5f, 0.0f, 0.0f, 1.0f, 1.0f },	 // Top-left (blue)
+//	{ -0.5f, -0.5f, 0.5f, 0.0f, 1.0f, 0.0f, 1.0f },	 // Bottom-right (green)
+//	{ -0.5f, 0.5f, -0.5f, 0.0f, 0.0f, 1.0f, 1.0f },	 // Top-left (blue)
+//	{ -0.5f, 0.5f, 0.5f, 1.0f, 1.0f, 0.0f, 1.0f },	 // Top-right (yellow)
+//	{ -0.5f, -0.5f, 0.5f, 0.0f, 1.0f, 0.0f, 1.0f },	 // Bottom-right (green)
+//
+//	// Right face (X+)
+//	{ 0.5f, -0.5f, -0.5f, 1.0f, 0.5f, 0.0f, 1.0f }, // Bottom-left (orange)
+//	{ 0.5f, -0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 1.0f },	// Bottom-right (gray)
+//	{ 0.5f, 0.5f, -0.5f, 0.5f, 0.0f, 0.5f, 1.0f },	// Top-left (purple)
+//	{ 0.5f, 0.5f, -0.5f, 0.5f, 0.0f, 0.5f, 1.0f },	// Top-left (purple)
+//	{ 0.5f, -0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 1.0f },	// Bottom-right (gray)
+//	{ 0.5f, 0.5f, 0.5f, 0.0f, 0.0f, 0.5f, 1.0f },	// Top-right (dark blue)
+//
+//	// Top face (Y+)
+//	{ -0.5f, 0.5f, -0.5f, 0.0f, 1.0f, 0.5f, 1.0f }, // Bottom-left (light green)
+//	{ -0.5f, 0.5f, 0.5f, 0.0f, 0.5f, 1.0f, 1.0f },	// Top-left (cyan)
+//	{ 0.5f, 0.5f, -0.5f, 0.5f, 1.0f, 1.0f, 1.0f },	// Bottom-right (white)
+//	{ -0.5f, 0.5f, 0.5f, 0.0f, 0.5f, 1.0f, 1.0f },	// Top-left (cyan)
+//	{ 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.0f, 1.0f },	// Top-right (brown)
+//	{ 0.5f, 0.5f, -0.5f, 0.5f, 1.0f, 1.0f, 1.0f },	// Bottom-right (white)
+//
+//	// Bottom face (Y-)
+//	{ -0.5f, -0.5f, -0.5f, 0.5f, 0.5f, 0.0f, 1.0f }, // Bottom-left (brown)
+//	{ -0.5f, -0.5f, 0.5f, 1.0f, 0.0f, 0.0f, 1.0f },	 // Top-left (red)
+//	{ 0.5f, -0.5f, -0.5f, 1.0f, 0.0f, 0.5f, 1.0f },	 // Bottom-right (purple)
+//	{ -0.5f, -0.5f, 0.5f, 1.0f, 0.0f, 0.0f, 1.0f },	 // Top-left (red)
+//	{ 0.5f, -0.5f, 0.5f, 0.0f, 1.0f, 0.0f, 1.0f },	 // Top-right (green)
+//	{ 0.5f, -0.5f, -0.5f, 1.0f, 0.0f, 0.5f, 1.0f },	 // Bottom-right (purple)
+//};
 
 // 구는 헤더파일로 대체
-#include "Sphere.h"
+//#include "Sphere.h"
 
 #pragma endregion
 
@@ -399,7 +410,9 @@ public:
 		D3D11_INPUT_ELEMENT_DESC layout[] = {
 			{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0,
 				D3D11_INPUT_PER_VERTEX_DATA, 0 },
-			{ "Color", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12,
+			/*{ "Color", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12,
+				D3D11_INPUT_PER_VERTEX_DATA, 0 }*/
+			{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 12, 
 				D3D11_INPUT_PER_VERTEX_DATA, 0 }
 		};
 
@@ -408,6 +421,9 @@ public:
 			vertexShaderCSO->GetBufferSize(), OUT & SimpleInputLayout);
 
 		Stride = sizeof(FVertexSimple);
+
+		CreateTexture(L"..\\Resource\\textures\\Sample.bmp", OUT & ImageSRV);
+		DeviceContext->PSSetShaderResources(0, 1, &ImageSRV); // 이미지로 만든 SRV 전달
 
 		// 사용한 CSO 해제
 		vertexShaderCSO->Release();
@@ -464,6 +480,18 @@ public:
 		{
 			DeviceContext->VSSetConstantBuffers(0, 1, &ConstantBuffer);
 		}
+		
+
+		D3D11_SAMPLER_DESC samplerDesc = {};
+		samplerDesc.AddressU = D3D11_TEXTURE_ADDRESS_WRAP;
+		samplerDesc.AddressV = D3D11_TEXTURE_ADDRESS_WRAP;
+		samplerDesc.AddressW = D3D11_TEXTURE_ADDRESS_WRAP;
+		samplerDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
+		samplerDesc.MaxLOD = FLT_MAX;
+		samplerDesc.MinLOD = FLT_MIN;
+
+		Device->CreateSamplerState(&samplerDesc, OUT &SimpleSamplerState);
+		DeviceContext->PSSetSamplers(0, 1, &SimpleSamplerState); // 샘플러 전달
 	}
 
 	void RenderPrimitive(ID3D11Buffer* pBuffer, UINT numVertices)
@@ -551,6 +579,30 @@ public:
 			DeviceContext->Unmap(ConstantBuffer, 0);
 		}
 	}
+
+	HRESULT CreateTexture(const std::wstring& path, ID3D11ShaderResourceView** srv)
+	{
+		if (path.empty()) //경로가 비었다면 실패 날리기
+		{
+			return E_FAIL;
+		}
+		HRESULT	hr = CreateWICTextureFromFile(
+			  Device,
+			  DeviceContext,
+			  path.c_str(),
+			  nullptr,
+			  srv
+		);
+
+		if (FAILED(hr))
+		{
+			return hr;
+		}
+
+		return S_OK;
+
+	}
+
 
 	FORCEINLINE ID3D11Device*		 GetDevice() const { return Device; }
 	FORCEINLINE ID3D11DeviceContext* GetDeviceContext() const { return DeviceContext; }
@@ -691,6 +743,10 @@ protected:
 	ID3D11VertexShader* SimpleVertexShader;
 	ID3D11PixelShader*	SimplePixelShader;
 	ID3D11InputLayout*	SimpleInputLayout;
+
+	ID3D11SamplerState* SimpleSamplerState;
+
+	ID3D11ShaderResourceView* ImageSRV = nullptr;
 	unsigned int		Stride;
 };
 #pragma endregion
@@ -877,10 +933,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	ImGui_ImplDX11_Init(renderer.GetDevice(), renderer.GetDeviceContext());
 
 	// Renderer와 Shader 생성 이후에 Vertex Buffer 생성
-	UINT numVerticesSphere = sizeof(sphere_vertices) / sizeof(FVertexSimple);
+	//UINT numVerticesSphere = sizeof(sphere_vertices) / sizeof(FVertexSimple);
+	UINT numVerticesSphere = sizeof(triangle_vertices) / sizeof(FVertexSimple);
 
 	// Vertex Buffer 선언(sphere)
-	ID3D11Buffer* vertexBufferSphere = renderer.CreateVertexBuffer(sphere_vertices, sizeof(sphere_vertices));
+	ID3D11Buffer* vertexBufferSphere = renderer.CreateVertexBuffer(triangle_vertices, sizeof(triangle_vertices));
 
 	// FPS 제한을 위한 설정 (60FPS)
 	const int	 targetFPS = 60;
@@ -947,20 +1004,20 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 			AddBalls(LastNumberOfBalls - UBall::TotalNumBalls);
 		}
 
-		// 공 움직임 적용
-		for (int i = 0; i < UBall::TotalNumBalls; ++i)
-		{
-			UBall* Ball = static_cast<UBall*>(PrimitiveList[i]);
+		//// 공 움직임 적용
+		//for (int i = 0; i < UBall::TotalNumBalls; ++i)
+		//{
+		//	UBall* Ball = static_cast<UBall*>(PrimitiveList[i]);
 
-			if (bApplyAngularVelocity)
-			{
-				Ball->MoveAngular();
-			}
-			else
-			{
-				Ball->MoveAccelerate();
-			}
-		}
+		//	if (bApplyAngularVelocity)
+		//	{
+		//		Ball->MoveAngular();
+		//	}
+		//	else
+		//	{
+		//		Ball->MoveAccelerate();
+		//	}
+		//}
 
 		// 충돌 검사 및 탄성 충돌
 		CheckElasticCollision();

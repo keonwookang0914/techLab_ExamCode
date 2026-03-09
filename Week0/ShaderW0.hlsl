@@ -7,13 +7,17 @@ cbuffer constants : register(b0)
 struct VS_INPUT
 {
     float4 position : POSITION; // Input position from vertex buffer
-    float4 color : COLOR;       // Input color from vertex buffer
+    float2 UV       : TEXCOORD;
+    //float4 color : COLOR;       // Input color from vertex buffer
 };
+
+Texture2D Texture : register(t0);
+SamplerState Sampler : register(s0);
 
 struct PS_INPUT
 {
     float4 position : SV_POSITION; // Transformed position to pass to the pixel shader
-    float4 color : COLOR;          // Color to pass to the pixel shader
+    float2 UV       : TEXCOORD;
 };
 
 PS_INPUT mainVS(VS_INPUT input)
@@ -32,7 +36,8 @@ PS_INPUT mainVS(VS_INPUT input)
     output.position = input.position + float4(Offset, 0.f);
     
     // Pass the color to the pixel shader
-    output.color = input.color;
+    //output.color = input.color;
+    output.UV = input.UV;
     
     return output;
 }
@@ -40,5 +45,5 @@ PS_INPUT mainVS(VS_INPUT input)
 float4 mainPS(PS_INPUT input) : SV_TARGET
 {
     // Output the color directly
-    return input.color;
+    return Texture.Sample(Sampler, input.UV);
 }
